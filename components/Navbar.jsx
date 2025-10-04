@@ -47,12 +47,6 @@ const Navbar = () => {
     setMobileMenuOpen(false);
   };
 
-  const goToCategory = (slug) => {
-    setMobileMenuOpen(false);
-    setMobileProductsOpen(false);
-    router.push(`/shop?category=${encodeURIComponent(slug)}`);
-  };
-
   const handleLogin = () => {
     if (user) {
       router.push("/orders");
@@ -157,14 +151,13 @@ const Navbar = () => {
                 ))}
               </nav>
 
-              {/* Desktop Search */}
+              {/* Desktop Search (icon removed) */}
               <motion.form
                 onSubmit={handleSearch}
-                className="hidden xl:flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full"
+                className="hidden xl:flex items-center bg-slate-100 px-4 py-2 rounded-full"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0, transition: spring }}
               >
-                <Search size={18} className="text-slate-600" />
                 <input
                   className="w-56 bg-transparent outline-none placeholder-slate-600 text-sm"
                   type="text"
@@ -178,7 +171,7 @@ const Navbar = () => {
             {/* Right: Icons */}
             <div className="flex items-center gap-3">
               {/* Search (Mobile Popover) */}
-              <div className="relative">
+              <div className="relative sm:hidden">
                 <motion.button
                   type="button"
                   className="p-2 rounded-full hover:bg-slate-100"
@@ -309,7 +302,7 @@ const Navbar = () => {
                       animate={{ opacity: 1, y: 0, scale: 1, transition: spring }}
                       exit={{ opacity: 0, y: -6, scale: 0.98, transition: fade }}
                     >
-                      {/* Products Dropdown */}
+                      {/* Products Dropdown (mobile with Links) */}
                       <motion.button
                         type="button"
                         onClick={() => setMobileProductsOpen((v) => !v)}
@@ -330,43 +323,52 @@ const Navbar = () => {
                         {mobileProductsOpen && (
                           <motion.div
                             key="products-sub"
-                            className="pl-4 flex flex-col gap-1 mb-1 overflow-hidden"
+                            className="pl-4 flex flex-col gap-1 mb-1 overflow-hidden pointer-events-auto"
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto", transition: spring }}
                             exit={{ opacity: 0, height: 0, transition: fade }}
                           >
-                            <button
-                              type="button"
-                              onClick={() => goToCategory("all")}
-                              className="text-sm p-2 text-left hover:bg-slate-100 rounded"
+                            <Link
+                              href="/shop"
+                              className="block text-sm p-2 text-left hover:bg-slate-100 rounded"
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                setMobileProductsOpen(false);
+                              }}
                             >
                               All Products
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => goToCategory("hair-care")}
-                              className="text-sm p-2 text-left hover:bg-slate-100 rounded"
+                            </Link>
+                            <Link
+                              href="/shop?category=hair-care"
+                              className="block text-sm p-2 text-left hover:bg-slate-100 rounded"
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                setMobileProductsOpen(false);
+                              }}
                             >
                               Hair Care
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => goToCategory("skin-care")}
-                              className="text-sm p-2 text-left hover:bg-slate-100 rounded"
+                            </Link>
+                            <Link
+                              href="/shop?category=skin-care"
+                              className="block text-sm p-2 text-left hover:bg-slate-100 rounded"
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                setMobileProductsOpen(false);
+                              }}
                             >
                               Skin Care
-                            </button>
+                            </Link>
                           </motion.div>
                         )}
                       </AnimatePresence>
 
-                      <Link href="/" className="p-2 hover:bg-slate-100 rounded">
+                      <Link href="/" className="p-2 hover:bg-slate-100 rounded" onClick={() => setMobileMenuOpen(false)}>
                         Home
                       </Link>
-                      <Link href="/about" className="p-2 hover:bg-slate-100 rounded">
+                      <Link href="/about" className="p-2 hover:bg-slate-100 rounded" onClick={() => setMobileMenuOpen(false)}>
                         About
                       </Link>
-                      <Link href="/contact" className="p-2 hover:bg-slate-100 rounded">
+                      <Link href="/contact" className="p-2 hover:bg-slate-100 rounded" onClick={() => setMobileMenuOpen(false)}>
                         Contact
                       </Link>
 
@@ -375,6 +377,7 @@ const Navbar = () => {
                       <Link
                         href="/cart"
                         className="p-2 hover:bg-slate-100 rounded flex items-center gap-2"
+                        onClick={() => setMobileMenuOpen(false)}
                       >
                         <ShoppingCart size={16} /> Cart
                         <span className="ml-auto text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">
