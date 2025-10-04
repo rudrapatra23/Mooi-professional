@@ -59,23 +59,7 @@ const Hero = () => {
             Discover the best in hair &amp; skin care — crafted for elegance and confidence.
           </motion.p>
 
-          {/* CTA: visible on all screens; full-width on mobile */}
-          <motion.div variants={fadeUp} className="mt-4 sm:mt-6 w-full flex justify-center">
-            <motion.a
-              href="/shop"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              className="inline-flex items-center justify-center gap-2
-                         w-full sm:w-auto
-                         bg-indigo-600 hover:bg-indigo-700
-                         text-white font-medium
-                         px-6 py-3 rounded-full
-                         shadow-lg shadow-indigo-900/30 transition-colors"
-            >
-              Shop Now
-              <ArrowRightIcon size={18} />
-            </motion.a>
-          </motion.div>
+          
         </motion.div>
       </div>
     </section>
