@@ -1,50 +1,54 @@
-'use client'
-import { useEffect, useState } from "react"
-import Loading from "@/components/Loading"
-import { useAuth } from "@clerk/nextjs"
-import axios from "axios"
-import toast from "react-hot-toast"
+"use client";
+import { useEffect, useState } from "react";
+import Loading from "@/components/Loading";
+import { useAuth } from "@clerk/nextjs";
+import axios from "axios";
+import toast from "react-hot-toast";
 
 export default function AdminOrders() {
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selectedOrder, setSelectedOrder] = useState(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const { getToken, isLoaded } = useAuth()
+  const { getToken, isLoaded } = useAuth();
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   const fetchOrders = async () => {
     try {
-      const token = await getToken()
+      const token = await getToken();
       if (!token) {
-        toast.error("No auth token. Please login.")
-        setLoading(false)
-        return
+        toast.error("No auth token. Please login.");
+        setLoading(false);
+        return;
       }
-      const { data } = await axios.get('/api/store/orders', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setOrders(data.orders || [])
+      const { data } = await axios.get("/api/store/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrders(data.orders || []);
     } catch (error) {
-      console.error("fetchOrders error:", error)
-      toast.error(error?.response?.data?.error || error.message || "Failed to fetch orders")
+      console.error("fetchOrders error:", error);
+      toast.error(
+        error?.response?.data?.error ||
+          error.message ||
+          "Failed to fetch orders"
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (!isLoaded) return
-    fetchOrders()
+    if (!isLoaded) return;
+    fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded])
+  }, [isLoaded]);
 
-  if (loading) return <Loading />
+  if (loading) return <Loading />;
 
   return (
     <>
@@ -57,34 +61,75 @@ export default function AdminOrders() {
           <table className="w-full text-sm text-left text-gray-600">
             <thead className="bg-gray-50 text-gray-700 text-xs uppercase tracking-wider">
               <tr>
-                {["Sr. No.", "Customer", "Total", "Payment", "Coupon", "Status", "Date"].map((h, i) => (
-                  <th key={i} className="px-4 py-3">{h}</th>
+                {[
+                  "Sr. No.",
+                  "Customer",
+                  "Total",
+                  "Payment",
+                  "Coupon",
+                  "Status",
+                  "Date",
+                ].map((h, i) => (
+                  <th key={i} className="px-4 py-3">
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {orders.map((order, index) => (
-                <tr key={order.id || index} className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onClick={() => { setSelectedOrder(order); setIsModalOpen(true) }}>
+                <tr
+                  key={order.id || index}
+                  className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  onClick={() => {
+                    setSelectedOrder(order);
+                    setIsModalOpen(true);
+                  }}
+                >
                   <td className="pl-6 text-green-600">{index + 1}</td>
                   <td className="px-4 py-3">{order.user?.name || "—"}</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">${order.total ?? "0.00"}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    ₹{order.total ?? "0.00"}
+                  </td>
                   <td className="px-4 py-3">{order.paymentMethod || "—"}</td>
                   <td className="px-4 py-3">
-                    {order.isCouponUsed ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">{order.coupon?.code}</span> : "—"}
+                    {order.isCouponUsed ? (
+                      <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+                        {order.coupon?.code}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
-                  <td className="px-4 py-3" onClick={(e)=> e.stopPropagation()}>
+                  <td
+                    className="px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <select
                       value={order.status}
                       onChange={async (e) => {
-                        e.stopPropagation()
-                        const newStatus = e.target.value
+                        e.stopPropagation();
+                        const newStatus = e.target.value;
                         try {
-                          const token = await getToken()
-                          await axios.post('/api/store/orders', { orderId: order.id, status: newStatus }, { headers: { Authorization: `Bearer ${token}` } })
-                          setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: newStatus } : o))
-                          toast.success("Status updated")
+                          const token = await getToken();
+                          await axios.patch(
+                            `/api/store/orders/${order.id}`,
+                            { status: newStatus },
+                            { headers: { Authorization: `Bearer ${token}` } }
+                          );
+
+                          setOrders((prev) =>
+                            prev.map((o) =>
+                              o.id === order.id
+                                ? { ...o, status: newStatus }
+                                : o
+                            )
+                          );
+                          toast.success("Status updated");
                         } catch (err) {
-                          toast.error(err?.response?.data?.error || err.message)
+                          toast.error(
+                            err?.response?.data?.error || err.message
+                          );
                         }
                       }}
                       className="border-gray-300 rounded-md text-sm focus:ring focus:ring-blue-200"
@@ -96,7 +141,9 @@ export default function AdminOrders() {
                     </select>
                   </td>
                   <td className="px-4 py-3 text-gray-500">
-                    {mounted ? new Date(order.createdAt).toLocaleString() : new Date(order.createdAt).toISOString()}
+                    {mounted
+                      ? new Date(order.createdAt).toLocaleString()
+                      : new Date(order.createdAt).toISOString()}
                   </td>
                 </tr>
               ))}
@@ -107,16 +154,33 @@ export default function AdminOrders() {
 
       {/* Modal */}
       {isModalOpen && selectedOrder && (
-        <div onClick={() => { setIsModalOpen(false); setSelectedOrder(null) }} className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6">
+        <div
+          onClick={() => {
+            setIsModalOpen(false);
+            setSelectedOrder(null);
+          }}
+          className="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6"
+          >
             <h2 className="text-xl font-semibold mb-4">Order Details</h2>
             {/* keep your details UI here (same as before) */}
             <div className="flex justify-end">
-              <button onClick={() => { setIsModalOpen(false); setSelectedOrder(null) }} className="px-4 py-2 bg-slate-200 rounded">Close</button>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setSelectedOrder(null);
+                }}
+                className="px-4 py-2 bg-slate-200 rounded"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
     </>
-  )
+  );
 }

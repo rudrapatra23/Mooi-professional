@@ -68,7 +68,7 @@ const OrderSummary = ({ totalPrice, items }) => {
             headers: { Authorization: `Bearer ${token}` }
            })
 
-           if(paymentMethod === 'STRIPE'){
+           if(paymentMethod === 'RAZORPAY'){
             window.location.href = data.session.url;
            }else{
             toast.success(data.message)
@@ -92,8 +92,8 @@ const OrderSummary = ({ totalPrice, items }) => {
                 <label htmlFor="COD" className='cursor-pointer'>COD</label>
             </div>
             <div className='flex gap-2 items-center mt-1'>
-                <input type="radio" id="STRIPE" name='payment' onChange={() => setPaymentMethod('STRIPE')} checked={paymentMethod === 'STRIPE'} className='accent-gray-500' />
-                <label htmlFor="STRIPE" className='cursor-pointer'>Stripe Payment</label>
+                <input type="radio" id="RAZORPAY" name='payment' onChange={() => setPaymentMethod('RAZORPAY')} checked={paymentMethod === 'RAZORPAY'} className='accent-gray-500' />
+                <label htmlFor="RAZORPAY" className='cursor-pointer'>RAZORPAY Payment</label>
             </div>
             <div className='my-4 py-4 border-y border-slate-200 text-slate-400'>
                 <p>Address</p>

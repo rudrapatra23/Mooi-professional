@@ -85,6 +85,7 @@ const Navbar = () => {
                   width={160}
                   height={48}
                   style={{ objectFit: "contain" }}
+                  priority
                 />
               </motion.div>
             </Link>
@@ -92,7 +93,7 @@ const Navbar = () => {
             {/* Desktop menu */}
             <div className="hidden sm:flex items-center gap-6 md:gap-8">
               <nav className="flex items-center gap-6 text-slate-700">
-                {/* Products Dropdown */}
+                {/* Products Dropdown (desktop) */}
                 <motion.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0, transition: spring }}
@@ -151,7 +152,7 @@ const Navbar = () => {
                 ))}
               </nav>
 
-              {/* Desktop Search (icon removed) */}
+              {/* Desktop Search */}
               <motion.form
                 onSubmit={handleSearch}
                 className="hidden xl:flex items-center bg-slate-100 px-4 py-2 rounded-full"
@@ -181,6 +182,7 @@ const Navbar = () => {
                   }}
                   aria-label="Open search"
                   whileTap={{ scale: 0.92 }}
+                  aria-expanded={mobileSearchOpen}
                 >
                   {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
                 </motion.button>
@@ -190,7 +192,7 @@ const Navbar = () => {
                     <motion.form
                       key="search-pop"
                       onSubmit={handleSearch}
-                      className="absolute right-0 top-10 z-50 w-64 bg-white border rounded-md shadow-md p-2 flex items-center gap-2"
+                      className="absolute right-0 top-10 z-[70] w-72 bg-white border rounded-md shadow-md p-2 flex items-center gap-2"
                       initial={{ opacity: 0, y: 6, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1, transition: spring }}
                       exit={{ opacity: 0, y: -6, scale: 0.98, transition: fade }}
@@ -287,27 +289,31 @@ const Navbar = () => {
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setMobileSearchOpen(false);
+                        setMobileProductsOpen(false);
                       }}
                     />
                   )}
                 </AnimatePresence>
 
-                {/* Mobile Menu Panel */}
+                {/* Mobile Menu Panel (fixed + high z-index) */}
                 <AnimatePresence>
                   {mobileMenuOpen && (
                     <motion.div
                       key="mobile-menu"
-                      className="absolute right-0 top-12 bg-white border shadow-lg rounded-lg w-56 z-50 p-2 flex flex-col text-sm origin-top-right"
+                      className="fixed right-3 top-16 bg-white border shadow-lg rounded-xl w-[88vw] max-w-[360px] z-[60] p-2 flex flex-col text-sm origin-top-right"
                       initial={{ opacity: 0, y: -6, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1, transition: spring }}
                       exit={{ opacity: 0, y: -6, scale: 0.98, transition: fade }}
+                      role="dialog"
+                      aria-modal="true"
                     >
-                      {/* Products Dropdown (mobile with Links) */}
+                      {/* Products Dropdown (mobile) */}
                       <motion.button
                         type="button"
                         onClick={() => setMobileProductsOpen((v) => !v)}
                         className="flex items-center justify-between w-full p-2 hover:bg-slate-100 rounded"
                         aria-expanded={mobileProductsOpen}
+                        aria-controls="mobile-products-sub"
                         whileTap={{ scale: 0.98 }}
                       >
                         <span className="flex items-center gap-2 font-medium">Products</span>
@@ -322,8 +328,9 @@ const Navbar = () => {
                       <AnimatePresence initial={false}>
                         {mobileProductsOpen && (
                           <motion.div
+                            id="mobile-products-sub"
                             key="products-sub"
-                            className="pl-4 flex flex-col gap-1 mb-1 overflow-hidden pointer-events-auto"
+                            className="pl-4 flex flex-col gap-1 mb-1 overflow-hidden"
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto", transition: spring }}
                             exit={{ opacity: 0, height: 0, transition: fade }}
@@ -362,13 +369,25 @@ const Navbar = () => {
                         )}
                       </AnimatePresence>
 
-                      <Link href="/" className="p-2 hover:bg-slate-100 rounded" onClick={() => setMobileMenuOpen(false)}>
+                      <Link
+                        href="/"
+                        className="p-2 hover:bg-slate-100 rounded"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
                         Home
                       </Link>
-                      <Link href="/about" className="p-2 hover:bg-slate-100 rounded" onClick={() => setMobileMenuOpen(false)}>
+                      <Link
+                        href="/about"
+                        className="p-2 hover:bg-slate-100 rounded"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
                         About
                       </Link>
-                      <Link href="/contact" className="p-2 hover:bg-slate-100 rounded" onClick={() => setMobileMenuOpen(false)}>
+                      <Link
+                        href="/contact"
+                        className="p-2 hover:bg-slate-100 rounded"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
                         Contact
                       </Link>
 
@@ -403,7 +422,7 @@ const Navbar = () => {
                             setMobileMenuOpen(false);
                             handleLogin();
                           }}
-                          className="p-2 hover:bg-emerald-600 hover:text-white rounded"
+                          className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
                         >
                           Login
                         </button>

@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+// GET /api/store/orders
 export async function GET() {
   try {
     const orders = await prisma.order.findMany({
@@ -16,6 +17,9 @@ export async function GET() {
     return NextResponse.json({ orders });
   } catch (error) {
     console.error("GET /api/store/orders error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: String(error?.message || error) },
+      { status: 500 }
+    );
   }
 }
