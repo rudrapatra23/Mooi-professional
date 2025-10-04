@@ -11,11 +11,11 @@ datasource db {
 
 // Required for creating a User: id, name, email, image, cart (optional JSON string)
 model User {
-    id    String @id
+    id    String  @id
     name  String
-    email String
-    image String
-    cart  Json   @default("{}")
+    email String? @unique
+    image String?
+    cart  Json    @default("{}")
 
     // Relations
     ratings     Rating[]

@@ -1,37 +1,62 @@
 import prisma from "@/lib/prisma";
-import { getAuth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 // Add new address
 export async function POST(request){
     try {
-        const { userId } = getAuth(request)
+        const { userId } = await auth();
         if (!userId) {
-            return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        const { address } = await request.json()
-        // Validate required fields
-        const requiredFields = ['name', 'email', 'street', 'city', 'state', 'zip', 'country', 'phone']
-        for (const field of requiredFields) {
-            if (!address[field] || address[field].toString().trim() === '') {
-                return NextResponse.json({ error: `Missing or empty field: ${field}` }, { status: 400 })
-            }
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        address.userId = userId
+        const { address } = await request.json();
+        // Upsert user in DB
+        await prisma.user.upsert({
+            where: { id: userId },
+            update: {
+                name: user.firstName || user.username || user.id,
+                email: user.emailAddresses?.[0]?.emailAddress,
+                image: user.imageUrl,
+            },
+            create: {
+                id: userId,
+                name: user.firstName || user.username || user.id,
+                email: user.emailAddresses?.[0]?.emailAddress,
+                image: user.imageUrl,
+            },
+        });
+        // Create address, connect to user
         const newAddress = await prisma.address.create({
-            data: address
-        })
-        return NextResponse.json({newAddress, message: 'Address added successfully' })
+            data: {
+                ...address,
+                user: { connect: { id: userId } },
+            },
+        });
+        return NextResponse.json({ newAddress, message: 'Address added successfully' });
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: error.code || error.message || JSON.stringify(error) }, { status: 400 })
+        if (error.code === 'P2003') {
+            return NextResponse.json({ error: 'Foreign key constraint failed' }, { status: 400 });
+        }
+        return NextResponse.json({ error: error.code || error.message || 'Internal Server Error' }, { status: 500 });
     }
 }
 
 // Get all addresses for a user
 export async function GET(request){
     try {
-        const { userId } = getAuth(request)
+        const { userId } = await auth();
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
         const addresses = await prisma.address.findMany({
             where: { userId }
