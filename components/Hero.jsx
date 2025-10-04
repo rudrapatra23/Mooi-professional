@@ -1,104 +1,85 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import { ArrowRightIcon } from 'lucide-react'
 import Image from 'next/image'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import CategoriesMarquee from './CategoriesMarquee'
-import { assets } from '@/assets/assets'
+import { motion } from 'framer-motion'
+import slideshow2 from '@/assets/slideshow2.png'
 
-const SLIDE_INTERVAL = 5000 // 5 seconds
-
-const HeroSlideshow = () => {
-  const slides = [assets.slideshow1, assets.slideshow2, assets.slideshow3]
-
-  const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
-  const intervalRef = useRef(null)
-
-  useEffect(() => {
-    if (!paused) {
-      intervalRef.current = setInterval(() => {
-        setIndex((i) => (i + 1) % slides.length)
-      }, SLIDE_INTERVAL)
-    }
-    return () => clearInterval(intervalRef.current)
-  }, [paused, slides.length])
-
-  const prev = () => setIndex((i) => (i - 1 + slides.length) % slides.length)
-  const next = () => setIndex((i) => (i + 1) % slides.length)
+const Hero = () => {
+  const container = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.04 } },
+  }
+  const fadeUp = {
+    hidden: { opacity: 0, y: 18 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 220, damping: 22 } },
+  }
 
   return (
-    <section className="mx-6">
-      <div className="max-w-7xl mx-auto my-10">
-        <div
-          className="relative w-full overflow-hidden rounded-3xl bg-gray-50"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
+    // no margin or padding on top; sits right under navbar
+    <section className="relative w-full overflow-hidden">
+      {/* Aspect-ratio wrapper (16:9 on mobile; a bit wider on larger screens) */}
+      <div className="relative w-full pt-[56.25%] sm:pt-[45%] md:pt-[40%] lg:pt-[38%]">
+        {/* Background image */}
+        <motion.div
+          className="absolute inset-0"
+          initial={{ scale: 1.04, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1, transition: { duration: 0.9, ease: 'easeOut' } }}
         >
-          {/* Slides */}
-          <div className="relative h-[420px] md:h-[520px] lg:h-[560px]">
-            {slides.map((src, i) => (
-              <div
-                key={i}
-                className={`absolute inset-0 transition-opacity duration-700 ease-in-out
-                  ${i === index ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-              >
-                <div className="w-full h-full flex items-center justify-center bg-slate-50">
-                  <div className="relative w-full h-full flex items-center justify-center">
-                    <Image
-                      src={src}
-                      alt={`slide-${i + 1}`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 1200px"
-                      style={{ objectFit: 'contain' }}
-                      className="select-none"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Image
+            src={slideshow2}
+            alt="Hero background"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          {/* Subtle bottom gradient for text readability (no gray at top) */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/55" />
+        </motion.div>
 
-          {/* Controls */}
-          <button
-            type="button"
-            aria-label="Previous slide"
-            onClick={prev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md hover:bg-white z-20"
+        {/* Overlay content (centered); only CTA on mobile */}
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center text-white px-5 text-center"
+        >
+          {/* Hidden on mobile; shows from sm+ */}
+          <motion.h1
+            variants={fadeUp}
+            className="hidden sm:block text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]"
           >
-            <ChevronLeft size={20} />
-          </button>
-          <button
-            type="button"
-            aria-label="Next slide"
-            onClick={next}
-            className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md hover:bg-white z-20"
+            Transform Your Style <br className="hidden md:block" /> with Premium Care
+          </motion.h1>
+
+          <motion.p
+            variants={fadeUp}
+            className="hidden sm:block mt-3 md:mt-4 text-base md:text-lg text-gray-100/95 max-w-2xl mx-auto leading-relaxed"
           >
-            <ChevronRight size={20} />
-          </button>
+            Discover the best in hair &amp; skin care — crafted for elegance and confidence.
+          </motion.p>
 
-          {/* Indicators */}
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-4 z-20 flex gap-2">
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIndex(i)}
-                className={`w-3 h-3 rounded-full transition-all ${
-                  i === index
-                    ? 'bg-slate-800 w-8 rounded-full'
-                    : 'bg-white/80 border border-slate-300'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Categories marquee below hero */}
-        <div className="mt-8">
-          <CategoriesMarquee />
-        </div>
+          {/* CTA: visible on all screens; full-width on mobile */}
+          <motion.div variants={fadeUp} className="mt-4 sm:mt-6 w-full flex justify-center">
+            <motion.a
+              href="/shop"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              className="inline-flex items-center justify-center gap-2
+                         w-full sm:w-auto
+                         bg-indigo-600 hover:bg-indigo-700
+                         text-white font-medium
+                         px-6 py-3 rounded-full
+                         shadow-lg shadow-indigo-900/30 transition-colors"
+            >
+              Shop Now
+              <ArrowRightIcon size={18} />
+            </motion.a>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   )
 }
 
-export default HeroSlideshow
+export default Hero

@@ -85,7 +85,7 @@ export default function ManageProductsPage() {
     <div className="max-w-5xl mx-auto p-4">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Manage Products</h1>
-        <Link href="/admin/add-product" className="px-4 py-2 bg-blue-600 text-white rounded">Add Product</Link>
+        <Link href="/admin/add-product" className="bg-slate-800 text-white px-6 mt-7 py-2 hover:bg-slate-900 rounded transition">Add Product</Link>
       </div>
 
       {error && (

@@ -19,7 +19,6 @@ export default function AdminDashboard() {
         products: 0,
         revenue: 0,
         orders: 0,
-        stores: 0,
         allOrders: [],
     })
 
@@ -27,7 +26,6 @@ export default function AdminDashboard() {
         { title: 'Total Products', value: dashboardData.products, icon: ShoppingBasketIcon },
         { title: 'Total Revenue', value: currency + dashboardData.revenue, icon: CircleDollarSignIcon },
         { title: 'Total Orders', value: dashboardData.orders, icon: TagsIcon },
-        { title: 'Total Stores', value: dashboardData.stores, icon: StoreIcon },
     ]
 
     const fetchDashboardData = async () => {
