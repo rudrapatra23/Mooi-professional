@@ -39,7 +39,7 @@ export default function EditProductPage({ params }) {
     setError(null);
     try {
       const token = await getToken();
-      const { data } = await axios.get(`/api/store/product?productId=${productId}`, {
+      const { data } = await axios.get(`/api/product?productId=${productId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const p = data?.product;
@@ -70,14 +70,14 @@ export default function EditProductPage({ params }) {
     setNewFiles(files);
 
     // create previews
-    const readers = files.map(file => {
+    const readers = Array.isArray(files) ? files.map(file => {
       return new Promise((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(r.result);
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-    });
+    }) : [];
     Promise.all(readers).then(results => setPreviewNew(results)).catch(() => setPreviewNew([]));
   }
 
@@ -107,7 +107,7 @@ export default function EditProductPage({ params }) {
         form.append("images", f);
       }
 
-      const res = await axios.put(`/api/store/product?productId=${productId}`, form, {
+      const res = await axios.put(`/api/product?productId=${productId}`, form, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
@@ -173,7 +173,7 @@ export default function EditProductPage({ params }) {
           <label className="block text-sm font-medium mb-2">Existing Images</label>
           <div className="flex gap-2 flex-wrap">
             {existingImages?.length === 0 && <div className="text-sm text-gray-500">No images</div>}
-            {existingImages?.map((src, idx) => (
+            {Array.isArray(existingImages) && existingImages?.map((src, idx) => (
               <img key={idx} src={src} alt={`img-${idx}`} className="w-24 h-24 object-cover rounded border" />
             ))}
           </div>
@@ -183,7 +183,7 @@ export default function EditProductPage({ params }) {
           <label className="block text-sm font-medium mb-2">Upload New Images (optional — will replace existing)</label>
           <input type="file" multiple accept="image/*" onChange={onFilesChange} />
           <div className="mt-2 flex gap-2 flex-wrap">
-            {previewNew.map((p, i) => (
+            {Array.isArray(previewNew) && previewNew.map((p, i) => (
               <img key={i} src={p} alt={`preview-${i}`} className="w-24 h-24 object-cover rounded border" />
             ))}
           </div>

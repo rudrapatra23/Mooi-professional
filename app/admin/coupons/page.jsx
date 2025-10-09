@@ -27,7 +27,9 @@ export default function AdminCoupons() {
         try {
             const token = await getToken()
             const { data } = await axios.get('/api/admin/coupon', {headers: { Authorization: `Bearer ${token}` }})
-            setCoupons(data.coupons)
+            console.log("COUPONS_API", data);
+            const list = Array.isArray(data?.coupons) ? data.coupons : [];
+            setCoupons(list)
         } catch (error) {
             toast.error(error?.response?.data?.error || error.message)
         }
@@ -142,7 +144,7 @@ export default function AdminCoupons() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                            {coupons.map((coupon) => (
+                            {Array.isArray(coupons) && coupons.map((coupon) => (
                                 <tr key={coupon.code} className="hover:bg-slate-50">
                                     <td className="py-3 px-4 font-medium text-slate-800">{coupon.code}</td>
                                     <td className="py-3 px-4 text-slate-800">{coupon.description}</td>

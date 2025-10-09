@@ -1,58 +1,70 @@
+// app/api/products/route.js
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-function toTitleCaseWithSpaces(slug) {
-  if (!slug) return slug;
-  return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+const MAX_LIMIT = 50;
+const num = (v, d=0) => Number.isFinite(Number(v)) ? Number(v) : d;
+const titleize = (slug="") => slug.replace(/-/g," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    const categoryParam = url.searchParams.get("category"); // e.g. "skin-care"
+    const page  = Math.max(1, num(url.searchParams.get("page"), 1));
+    const limit = Math.min(Math.max(num(url.searchParams.get("limit"), 20), 1), MAX_LIMIT);
+    const q = (url.searchParams.get("q") || "").trim();
+    const catRaw = (url.searchParams.get("category") || "").trim(); // e.g. "skin-care"
 
-    // base filter
-    const where = {
-      inStock: true,
-      // if store is a relation, use "is"
-      store: { is: { isActive: true } },
-    };
-
-    // IMPORTANT: "mode" doesn't work with `in:` arrays. Use OR + equals.
-    if (categoryParam) {
-      const slug = categoryParam;                               // "skin-care"
-      const spaced = categoryParam.replace(/-/g, " ");          // "skin care"
-      const title = toTitleCaseWithSpaces(categoryParam);       // "Skin Care"
-
-      where.OR = [
-        { category: { equals: slug,   mode: "insensitive" } },
-        { category: { equals: spaced, mode: "insensitive" } },
-        { category: { equals: title,  mode: "insensitive" } },
-      ];
+    const whereAND = [];
+    if (q) {
+      whereAND.push({
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (catRaw) {
+      const spaced = catRaw.replace(/-/g, " ");
+      const titled = titleize(catRaw);
+      whereAND.push({
+        OR: [
+          { category: { equals: catRaw,  mode: "insensitive" } },
+          { category: { equals: spaced,  mode: "insensitive" } },
+          { category: { equals: titled,  mode: "insensitive" } },
+        ],
+      });
     }
 
-    const products = await prisma.product.findMany({
-      where,
-      include: {
-        rating: {
-          select: {
-            createdAt: true,
-            rating: true,
-            review: true,
-            user: { select: { name: true, image: true } },
-          },
-        },
-        store: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const where = whereAND.length ? { AND: whereAND } : {};
 
-    return NextResponse.json({ products });
+    const [total, items] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          mrp: true,
+          category: true,
+          inStock: true,
+          images: true,   // keep but show only first on UI
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    return NextResponse.json({
+      total,
+      page,
+      limit,
+      items, // <-- standard key
+    });
   } catch (error) {
     console.error("GET /api/products error:", error);
-    return NextResponse.json(
-      { error: "An internal server error occurred." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

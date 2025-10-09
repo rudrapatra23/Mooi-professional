@@ -29,8 +29,10 @@ export default function ManageProductsPage() {
       const { data } = await axios.get("/api/store/product", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      // API ideally returns array or { products: [] }; handle both
-      const list = Array.isArray(data) ? data : (Array.isArray(data?.products) ? data.products : [])
+      console.log("MANAGE_PRODUCTS_API", data);
+      // API returns { items: [...] } or { products: [...] }; handle both
+      const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.products) ? data.products : [])
+      console.log("MANAGE_PRODUCTS_FETCHED", list.length, "items")
       setProducts(list)
     } catch (err) {
       console.error("fetchProducts error:", err)

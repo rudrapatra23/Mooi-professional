@@ -22,7 +22,9 @@ export default function Orders() {
         try {
             const token = await getToken()
             const { data } = await axios.get('/api/orders', { headers: { Authorization: `Bearer ${token}` } })
-            setOrders(data.orders)
+            console.log("ORDERS_API", data);
+            const list = data?.items ?? data?.orders ?? [];
+            setOrders(list)
             setLoading(false)
         } catch (error) {
             toast.error(error?.response?.data?.error || error.message)
@@ -43,7 +45,7 @@ export default function Orders() {
 
     return (
         <div className="min-h-[70vh] mx-6">
-            {orders.length > 0 ? (
+            {Array.isArray(orders) && orders.length > 0 ? (
                 (
                     <div className="my-20 max-w-7xl mx-auto">
                         <PageTitle heading="My Orders" text={`Showing total ${orders.length} orders`} linkText={'Go to home'} />

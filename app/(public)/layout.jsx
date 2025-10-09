@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProducts } from "@/lib/features/product/productSlice";
 import { useUser, useAuth } from "@clerk/nextjs";
-import { fetchCart, uploadCart } from "@/lib/features/cart/cartSlice";
+import { fetchCart } from "@/lib/features/cart/cartSlice";
 import { fetchAddress } from "@/lib/features/address/addressSlice";
 import { fetchUserRatings } from "@/lib/features/rating/ratingSlice";
 
@@ -15,8 +15,6 @@ export default function PublicLayout({ children }) {
     const dispatch = useDispatch()
     const {user} = useUser()
     const {getToken} = useAuth()
-
-    const {cartItems} = useSelector((state)=>state.cart)
 
     useEffect(()=>{
         dispatch(fetchProducts({}))
@@ -30,14 +28,8 @@ export default function PublicLayout({ children }) {
         }
     },[user])
 
-    useEffect(()=>{
-        if(user){
-            dispatch(uploadCart({getToken}))
-        }
-    },[cartItems])
-
-
-
+    // Removed automatic cart upload to prevent POST spam on navigation
+    // Cart will only be uploaded when user explicitly changes cart items
 
     return (
         <>

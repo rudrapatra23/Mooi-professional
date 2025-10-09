@@ -26,10 +26,10 @@ export default function AdminOrders() {
         setLoading(false);
         return;
       }
-      const { data } = await axios.get("/api/store/orders", {
+      const { data } = await axios.get("/api/orders?admin=true", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setOrders(data.orders || []);
+      setOrders(data.items || []);
     } catch (error) {
       console.error("fetchOrders error:", error);
       toast.error(
@@ -113,8 +113,8 @@ export default function AdminOrders() {
                         try {
                           const token = await getToken();
                           await axios.patch(
-                            `/api/store/orders/${order.id}`,
-                            { status: newStatus },
+                            `/api/orders`,
+                            { orderId: order.id, status: newStatus },
                             { headers: { Authorization: `Bearer ${token}` } }
                           );
 

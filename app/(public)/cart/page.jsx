@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import Counter from "@/components/Counter";
 import OrderSummary from "@/components/OrderSummary";
 import PageTitle from "@/components/PageTitle";
@@ -12,8 +12,15 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function Cart() {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
-  const { cartItems } = useSelector((state) => state.cart);
-  const products = useSelector((state) => state.product.list);
+  // be defensive: state slices might be undefined during init/hmr
+  const reduxCart = useSelector((state) => state?.cart ?? {});
+  const cartItems = reduxCart?.cartItems ?? {}; // object: { productId: qty }
+  const products = useSelector((state) => state?.product?.list ?? []); // array or []
+
+  // debug safely
+  const safeProducts = Array.isArray(products) ? products : [];
+  console.log("CART_PRODUCTS", safeProducts.length);
+
   const dispatch = useDispatch();
 
   const [cartArray, setCartArray] = useState([]);
@@ -41,11 +48,15 @@ export default function Cart() {
     let nextTotal = 0;
     const next = [];
 
-    for (const [key, value] of Object.entries(cartItems || {})) {
-      const product = products.find((p) => String(p.id) === String(key));
+    // guard cartItems to be object
+    const safeCartItems = cartItems && typeof cartItems === "object" ? cartItems : {};
+
+    for (const [key, value] of Object.entries(safeCartItems)) {
+      const product = safeProducts.find((p) => String(p?.id) === String(key));
       if (product) {
-        next.push({ ...product, quantity: value });
-        nextTotal += product.price * Number(value);
+        const qty = Number(value) || 0;
+        next.push({ ...product, quantity: qty });
+        nextTotal += (Number(product.price) || 0) * qty;
       }
     }
 
@@ -58,15 +69,24 @@ export default function Cart() {
   };
 
   useEffect(() => {
-    if (products && products.length > 0) createCartArray();
-  }, [cartItems, products]);
+    // Only build cart array when products list is available.
+    // If products list empty, reset cartArray (prevents stale state).
+    if (safeProducts.length > 0) {
+      createCartArray();
+    } else {
+      setCartArray([]);
+      setTotalPrice(0);
+    }
+    // Re-run when cartItems or products change
+  }, [cartItems, safeProducts.length]); // use safeProducts.length to avoid deep compare
 
   const formattedTotal = useMemo(
-    () => `${currency}${totalPrice.toLocaleString()}`,
+    () => `${currency}${Number(totalPrice || 0).toLocaleString()}`,
     [currency, totalPrice]
   );
 
-  return cartArray.length > 0 ? (
+  // render
+  return Array.isArray(cartArray) && cartArray.length > 0 ? (
     <motion.div
       className="min-h-screen mx-6 text-slate-800"
       initial={{ opacity: 0 }}
@@ -118,39 +138,39 @@ export default function Cart() {
                         transition={{ type: "spring", stiffness: 250, damping: 16 }}
                       >
                         <Image
-                          src={item.images?.[0]}
+                          src={item?.images?.[0] ?? ""}
                           className="h-14 w-auto"
-                          alt={item.name || ""}
+                          alt={item?.name ?? ""}
                           width={56}
                           height={56}
                         />
                       </motion.div>
                       <div>
-                        <p className="max-sm:text-sm">{item.name}</p>
-                        <p className="text-xs text-slate-500">{item.category}</p>
+                        <p className="max-sm:text-sm">{item?.name}</p>
+                        <p className="text-xs text-slate-500">{item?.category}</p>
                         <p>
                           {currency}
-                          {item.price}
+                          {item?.price}
                         </p>
                       </div>
                     </motion.td>
 
                     <motion.td className="text-center" layout>
-                      <Counter productId={item.id} />
+                      <Counter productId={item?.id} />
                     </motion.td>
 
                     <motion.td className="text-center" layout>
                       {currency}
-                      {(item.price * item.quantity).toLocaleString()}
+                      {(Number(item?.price || 0) * Number(item?.quantity || 0)).toLocaleString()}
                     </motion.td>
 
                     <motion.td className="text-center max-md:hidden" layout>
                       <motion.button
-                        onClick={() => handleDeleteItemFromCart(item.id)}
+                        onClick={() => handleDeleteItemFromCart(item?.id)}
                         className="text-red-500 hover:bg-red-50 p-2.5 rounded-full transition-all"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.92 }}
-                        aria-label={`Remove ${item.name} from cart`}
+                        aria-label={`Remove ${item?.name} from cart`}
                       >
                         <Trash2Icon size={18} />
                       </motion.button>

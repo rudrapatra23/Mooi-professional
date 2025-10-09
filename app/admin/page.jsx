@@ -19,7 +19,6 @@ export default function AdminDashboard() {
         products: 0,
         revenue: 0,
         orders: 0,
-        allOrders: [],
     })
 
     const dashboardCardsData = [
@@ -34,6 +33,7 @@ export default function AdminDashboard() {
             const { data } = await axios.get('/api/admin/dashboard', {
                 headers: { Authorization: `Bearer ${token}` }
             })
+            console.log("DASHBOARD_API", data.dashboardData);
             setDashboardData(data.dashboardData)
         } catch (error) {
            toast.error(error?.response?.data?.error || error.message) 
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Area Chart */}
-            <OrdersAreaChart allOrders={dashboardData.allOrders} />
+            <OrdersAreaChart allOrders={[]} />
         </div>
     )
 }

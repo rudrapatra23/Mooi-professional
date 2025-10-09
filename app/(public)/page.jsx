@@ -5,6 +5,7 @@ import Hero from "@/components/Hero";
 import Newsletter from "@/components/Newsletter";
 import OurSpecs from "@/components/OurSpec";
 import LatestProducts from "@/components/LatestProducts";
+import ShopByCategory from "@/components/ShopByCategory";
 
 export default function Home() {
   // Variants for sections
@@ -26,7 +27,16 @@ export default function Home() {
     <div className="overflow-hidden">
       {/* Hero - load instantly */}
       <Hero />
-
+      {/* Shop by Category */}
+      <motion.section
+        variants={fadeUp}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.2 }}
+        custom={0.0}
+      >
+        <ShopByCategory />
+      </motion.section>
       {/* Latest Products */}
       <motion.section
         variants={fadeUp}
