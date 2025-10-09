@@ -76,7 +76,7 @@ export async function POST(request) {
     // Shipping fee once if not member
     let shippingFee = 0;
     if (!isPlusMember) {
-      shippingFee = 5; // adjust or compute dynamically if needed
+      shippingFee = 99; // adjust or compute dynamically if needed
     }
 
     const fullAmount = Number((subtotal + shippingFee).toFixed(2));
@@ -86,7 +86,7 @@ export async function POST(request) {
       userId,
       addressId,
       total: fullAmount,
-      paymentMethod, // Expect values matching your enum, e.g., "COD" or "RAZORPAY" or "STRIPE"
+      paymentMethod, // Expect values matching your enum, e.g., "COD" or "RAZORPAY" 
       isCouponUsed: !!coupon,
       coupon: coupon ?? {},
       orderItems: {

@@ -1,221 +1,164 @@
-"use client";
+'use client';
 import Counter from "@/components/Counter";
 import OrderSummary from "@/components/OrderSummary";
 import PageTitle from "@/components/PageTitle";
 import { deleteItemFromCart } from "@/lib/features/cart/cartSlice";
 import { Trash2Icon } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { motion, AnimatePresence } from "framer-motion";
 
 export default function Cart() {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
-  // be defensive: state slices might be undefined during init/hmr
   const reduxCart = useSelector((state) => state?.cart ?? {});
-  const cartItems = reduxCart?.cartItems ?? {}; // object: { productId: qty }
-  const products = useSelector((state) => state?.product?.list ?? []); // array or []
-
-  // debug safely
+  const cartItems = reduxCart?.cartItems ?? {};
+  const products = useSelector((state) => state?.product?.list ?? []);
   const safeProducts = Array.isArray(products) ? products : [];
-  console.log("CART_PRODUCTS", safeProducts.length);
 
   const dispatch = useDispatch();
 
   const [cartArray, setCartArray] = useState([]);
   const [totalPrice, setTotalPrice] = useState(0);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.06, delayChildren: 0.05 },
-    },
-  };
-
-  const rowVariants = {
-    hidden: { opacity: 0, y: 12 },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", stiffness: 220, damping: 20 },
-    },
-    exit: { opacity: 0, y: -8, transition: { duration: 0.12 } },
-  };
-
-  const createCartArray = () => {
+  const buildCartFromProducts = (productList) => {
     let nextTotal = 0;
     const next = [];
-
-    // guard cartItems to be object
     const safeCartItems = cartItems && typeof cartItems === "object" ? cartItems : {};
 
     for (const [key, value] of Object.entries(safeCartItems)) {
-      const product = safeProducts.find((p) => String(p?.id) === String(key));
+      const product = productList.find((p) => String(p?.id) === String(key));
       if (product) {
         const qty = Number(value) || 0;
         next.push({ ...product, quantity: qty });
         nextTotal += (Number(product.price) || 0) * qty;
       }
     }
-
     setCartArray(next);
     setTotalPrice(nextTotal);
   };
+
+  useEffect(() => {
+    if (safeProducts.length > 0) {
+      buildCartFromProducts(safeProducts);
+      return;
+    }
+
+    const hasCartItems = Object.keys(cartItems || {}).length > 0;
+    if (!hasCartItems) {
+      setCartArray([]);
+      setTotalPrice(0);
+    }
+  }, [safeProducts.length, JSON.stringify(cartItems)]);
+
+  useEffect(() => {
+    if (Array.isArray(safeProducts) && safeProducts.length > 0) return;
+    const productIds = Object.keys(cartItems || {});
+    if (!productIds.length) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const fetches = productIds.map((id) =>
+          fetch(`/api/product?productId=${encodeURIComponent(id)}`).then(async (res) => {
+            if (!res.ok) return null;
+            const json = await res.json();
+            return json?.product ?? null;
+          }).catch(() => null)
+        );
+
+        const results = await Promise.all(fetches);
+        if (cancelled) return;
+
+        const fetchedProducts = results.filter(Boolean);
+        if (fetchedProducts.length > 0) {
+          buildCartFromProducts(fetchedProducts);
+        } else {
+          setCartArray([]);
+          setTotalPrice(0);
+        }
+      } catch {
+        if (!cancelled) {
+          setCartArray([]);
+          setTotalPrice(0);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [JSON.stringify(cartItems), safeProducts.length]);
 
   const handleDeleteItemFromCart = (productId) => {
     dispatch(deleteItemFromCart({ productId }));
   };
 
-  useEffect(() => {
-    // Only build cart array when products list is available.
-    // If products list empty, reset cartArray (prevents stale state).
-    if (safeProducts.length > 0) {
-      createCartArray();
-    } else {
-      setCartArray([]);
-      setTotalPrice(0);
-    }
-    // Re-run when cartItems or products change
-  }, [cartItems, safeProducts.length]); // use safeProducts.length to avoid deep compare
-
-  const formattedTotal = useMemo(
-    () => `${currency}${Number(totalPrice || 0).toLocaleString()}`,
-    [currency, totalPrice]
-  );
-
-  // render
   return Array.isArray(cartArray) && cartArray.length > 0 ? (
-    <motion.div
-      className="min-h-screen mx-6 text-slate-800"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <div className="min-h-screen mx-6 text-slate-800">
       <div className="max-w-7xl mx-auto">
-        {/* Title */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            transition: { type: "spring", stiffness: 200, damping: 18 },
-          }}
-        >
-          <PageTitle heading="My Cart" text="items in your cart" linkText="Add more" />
-        </motion.div>
+        <PageTitle heading="My Cart" text="items in your cart" linkText="Add more" />
 
         <div className="flex items-start justify-between gap-5 max-lg:flex-col">
-          <motion.table
-            className="w-full max-w-4xl text-slate-600 table-auto"
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-          >
+          <table className="w-full max-w-4xl text-slate-600 table-auto">
             <thead>
-              <tr className="max-sm:text-sm">
-                <th className="text-left">Product</th>
+              <tr className="border-b">
+                <th className="text-left py-2">Product</th>
                 <th>Quantity</th>
                 <th>Total Price</th>
                 <th className="max-md:hidden">Remove</th>
               </tr>
             </thead>
-
             <tbody>
-              <AnimatePresence initial={false}>
-                {cartArray.map((item) => (
-                  <motion.tr
-                    key={String(item.id)}
-                    variants={rowVariants}
-                    exit="exit"
-                    layout
-                    className="space-x-2"
-                  >
-                    <motion.td className="flex gap-3 my-4" layout>
-                      <motion.div
-                        className="flex gap-3 items-center justify-center bg-slate-100 size-18 rounded-md overflow-hidden"
-                        whileHover={{ scale: 1.03 }}
-                        transition={{ type: "spring", stiffness: 250, damping: 16 }}
-                      >
-                        <Image
-                          src={item?.images?.[0] ?? ""}
-                          className="h-14 w-auto"
-                          alt={item?.name ?? ""}
-                          width={56}
-                          height={56}
-                        />
-                      </motion.div>
-                      <div>
-                        <p className="max-sm:text-sm">{item?.name}</p>
-                        <p className="text-xs text-slate-500">{item?.category}</p>
-                        <p>
-                          {currency}
-                          {item?.price}
-                        </p>
-                      </div>
-                    </motion.td>
-
-                    <motion.td className="text-center" layout>
-                      <Counter productId={item?.id} />
-                    </motion.td>
-
-                    <motion.td className="text-center" layout>
-                      {currency}
-                      {(Number(item?.price || 0) * Number(item?.quantity || 0)).toLocaleString()}
-                    </motion.td>
-
-                    <motion.td className="text-center max-md:hidden" layout>
-                      <motion.button
-                        onClick={() => handleDeleteItemFromCart(item?.id)}
-                        className="text-red-500 hover:bg-red-50 p-2.5 rounded-full transition-all"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.92 }}
-                        aria-label={`Remove ${item?.name} from cart`}
-                      >
-                        <Trash2Icon size={18} />
-                      </motion.button>
-                    </motion.td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
+              {cartArray.map((item) => (
+                <tr key={item.id} className="border-b">
+                  <td className="flex gap-3 my-4">
+                    <div className="flex items-center justify-center bg-slate-100 size-18 rounded-md overflow-hidden">
+                      <Image
+                        src={item?.images?.[0] ?? ""}
+                        className="h-14 w-auto"
+                        alt={item?.name ?? ""}
+                        width={56}
+                        height={56}
+                      />
+                    </div>
+                    <div>
+                      <p className="font-medium">{item?.name}</p>
+                      <p className="text-xs text-slate-500">{item?.category}</p>
+                      <p>
+                        {currency}
+                        {item?.price}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="text-center">
+                    <Counter productId={item?.id} />
+                  </td>
+                  <td className="text-center">
+                    {currency}
+                    {(Number(item?.price || 0) * Number(item?.quantity || 0)).toLocaleString()}
+                  </td>
+                  <td className="text-center max-md:hidden">
+                    <button
+                      onClick={() => handleDeleteItemFromCart(item?.id)}
+                      className="text-red-500 hover:bg-red-50 p-2.5 rounded-full"
+                    >
+                      <Trash2Icon size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
-          </motion.table>
+          </table>
 
-          {/* Order Summary */}
-          <motion.div
-            key={totalPrice} // re-animate when total changes
-            initial={{ scale: 0.96, opacity: 0 }}
-            animate={{
-              scale: 1,
-              opacity: 1,
-              transition: { type: "spring", stiffness: 220, damping: 18 },
-            }}
-          >
-            <OrderSummary totalPrice={totalPrice} items={cartArray} />
-            <motion.p
-              className="mt-2 text-right text-slate-500 text-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              Payable: <motion.span layout>{formattedTotal}</motion.span>
-            </motion.p>
-          </motion.div>
+          {/* ✅ Order Summary handles Subtotal + Shipping + GST + Payable */}
+          <OrderSummary totalPrice={totalPrice} items={cartArray} />
         </div>
       </div>
-    </motion.div>
+    </div>
   ) : (
-    <motion.div
-      className="min-h-[80vh] mx-6 flex items-center justify-center text-slate-400"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
-      <motion.h1
-        className="text-2xl sm:text-4xl font-semibold"
-        initial={{ y: 8, opacity: 0 }}
-        animate={{ y: 0, opacity: 1, transition: { type: "spring", stiffness: 200, damping: 18 } }}
-      >
-        Your cart is empty
-      </motion.h1>
-    </motion.div>
+    <div className="min-h-[80vh] mx-6 flex items-center justify-center text-slate-400">
+      <h1 className="text-2xl sm:text-4xl font-semibold">Your cart is empty</h1>
+    </div>
   );
 }

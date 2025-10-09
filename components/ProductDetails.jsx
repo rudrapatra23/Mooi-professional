@@ -1,4 +1,3 @@
-// components/ProductDetails.jsx
 "use client";
 
 import { StarIcon, TagIcon, EarthIcon, CreditCardIcon } from "lucide-react";
@@ -9,15 +8,20 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "@/lib/features/cart/cartSlice";
 
 const ProductDetails = ({ product }) => {
+  // defensive: if product missing, render nothing (parent already guards, but extra safety)
+  if (!product) return null;
+
   const productId = product.id;
   const currencySymbol = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
-  const cart = useSelector((state) => state.cart.cartItems);
+  // safe cart selector: default to empty object if slice missing
+  const cart = useSelector((state) => state.cart?.cartItems ?? {});
   const dispatch = useDispatch();
   const router = useRouter();
 
+  // safe mainImage initialiser
   const [mainImage, setMainImage] = useState(
-    product.images && product.images.length ? product.images[0] : ""
+    Array.isArray(product.images) && product.images.length ? product.images[0] : ""
   );
 
   const addToCartHandler = () => {
@@ -25,9 +29,10 @@ const ProductDetails = ({ product }) => {
     dispatch(addToCart({ productId }));
   };
 
+  // safe average rating calc
   const averageRating =
-    product.rating && product.rating.length > 0
-      ? product.rating.reduce((acc, item) => acc + item.rating, 0) /
+    Array.isArray(product.rating) && product.rating.length > 0
+      ? product.rating.reduce((acc, item) => acc + (item.rating || 0), 0) /
         product.rating.length
       : 0;
 
@@ -55,20 +60,24 @@ const ProductDetails = ({ product }) => {
       <div className="flex max-sm:flex-col-reverse gap-3">
         {/* Thumbnails */}
         <div className="flex sm:flex-col gap-3">
-          {product.images.map((image, index) => (
-            <button
-              key={index}
-              onClick={() => setMainImage(product.images[index])}
-              className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer"
-              type="button"
-            >
-              <img
-                src={image}
-                alt={`thumb-${index}`}
-                className="max-w-full max-h-full object-contain block"
-              />
-            </button>
-          ))}
+          {Array.isArray(product.images) && product.images.length ? (
+            product.images.map((image, index) => (
+              <button
+                key={index}
+                onClick={() => setMainImage(product.images[index])}
+                className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer"
+                type="button"
+              >
+                <img
+                  src={image}
+                  alt={`thumb-${index}`}
+                  className="max-w-full max-h-full object-contain block"
+                />
+              </button>
+            ))
+          ) : (
+            <div className="text-slate-400">No images</div>
+          )}
         </div>
 
         {/* Main Image */}
@@ -106,14 +115,14 @@ const ProductDetails = ({ product }) => {
               />
             ))}
           <p className="text-sm ml-3 text-slate-500">
-            {product.rating?.length || 0} Reviews
+            {Array.isArray(product.rating) ? product.rating.length : 0} Reviews
           </p>
         </div>
 
         {/* Prices */}
         <div className="flex items-start my-6 gap-3 text-2xl font-semibold text-slate-800">
           <p>{fmt.format(product.price)}</p>
-          {product.mrp > product.price && (
+          {typeof product.mrp === "number" && product.mrp > product.price && (
             <p className="text-xl text-slate-500 line-through">
               {fmt.format(product.mrp)}
             </p>
@@ -136,7 +145,7 @@ const ProductDetails = ({ product }) => {
         </div>
 
         {/* Discount line */}
-        {product.mrp > product.price && (
+        {typeof product.mrp === "number" && product.mrp > product.price && (
           <div className="flex items-center gap-2 text-slate-500 mt-3">
             <TagIcon size={14} />
             <p>
