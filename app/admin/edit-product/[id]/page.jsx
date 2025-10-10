@@ -39,10 +39,10 @@ export default function EditProductPage({ params }) {
     setError(null);
     try {
       const token = await getToken();
-      const { data } = await axios.get(`/api/product?productId=${productId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const { data } = await axios.get(`/api/product?productId=${encodeURIComponent(productId)}&ts=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}`, "Cache-Control": "no-cache" },
       });
-      const p = data?.product;
+      const p = data?.product || data?.item || data?.data; // tolerate variations
       if (!p) {
         setError("Product not found");
         setProduct(null);
@@ -86,7 +86,7 @@ export default function EditProductPage({ params }) {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.replace("/admin/manage-product"); // <-- ensure this matches your folder name
+      router.replace("/admin/manage-products");
     }
   }
 
@@ -107,18 +107,17 @@ export default function EditProductPage({ params }) {
         form.append("images", f);
       }
 
-      const res = await axios.put(`/api/product?productId=${productId}`, form, {
+      const res = await axios.put(`/api/product?productId=${encodeURIComponent(productId)}&ts=${Date.now()}`, form, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
+          "Cache-Control": "no-cache"
         },
       });
 
       toast.success("Product updated");
 
-      // Clear any client cache/state if needed, then navigate
-      // Use replace() to avoid keeping edit page in history
-      router.replace("/admin/manage-product");
+      router.replace("/admin/manage-products");
     } catch (err) {
       console.error("update product error:", err);
       toast.error(err?.response?.data?.error || err.message || "Update failed");
