@@ -8,22 +8,20 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Required for creating a User: id, name, email, image, cart (optional JSON string)
 model User {
-  id          String  @id
-  name        String
-  email       String? @unique
-  image       String?
-  cart        Json    @default("{}")
+  id    String  @id
+  name  String
+  email String? @unique
+  image String?
+  cart  Json    @default("{}")
 
   // Relations
   ratings     Rating[]
-  Address     Address[]
+  addresses   Address[] // renamed for clarity (was `Address`)
   buyerOrders Order[]   @relation("BuyerRelation")
-  // store       Store?  // ❌ removed (single-vendor)
+  // store       Store?  // single-vendor
 }
 
-// Required for creating a Product: name, description, mrp, price, images, category
 model Product {
   id          String   @id @default(cuid())
   name        String
@@ -34,13 +32,13 @@ model Product {
   category    String
   inStock     Boolean  @default(true)
   stock       Int      @default(0)
-  isDeleted   Boolean  @default(false)   // <-- soft-delete flag added
+  isDeleted   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations (store removed)
-  orderItems  OrderItem[]
-  rating      Rating[]
+  // Relations
+  orderItems OrderItem[]
+  rating     Rating[]
 
   @@index([category])
   @@index([createdAt])
@@ -56,34 +54,57 @@ enum OrderStatus {
 }
 
 enum PaymentMethod {
-  COD
   RAZORPAY
 }
 
-// Required for creating an Order: total, userId, addressId, isPaid, paymentMethod, isCouponUsed, coupon (JSON), orderItems (nested)
+/**
+ * ---------- Orders & Payments ----------
+ */
 model Order {
-  id                 String        @id @default(cuid())
-  total              Float
-  status             OrderStatus   @default(ORDER_PLACED)
-  userId             String
-  addressId          String
-  isPaid             Boolean       @default(false)
-  paymentMethod      PaymentMethod
-  razorpayOrderId    String?       // <-- optional Razorpay order id
-  razorpayPaymentId  String?       // <-- optional Razorpay payment id
-  paidAt             DateTime?     // <-- optional paid timestamp
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  isCouponUsed       Boolean       @default(false)
-  coupon             Json          @default("{}")
-  orderItems         OrderItem[]
+  id          String   @id @default(cuid())
+  razorpayId  String?  @unique
+  userId      String? // FK to User.id (buyer)
+  addressId   String? // FK to Address.id (delivery)
+  subtotal    Float
+  shipping    Float
+  gst         Float
+  discount    Float    @default(0)
+  total       Float
+  currency    String   @default("INR")
+  itemsJson   String
+  addressJson String?
+  status      String   @default("created")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Relations
-  user    User    @relation("BuyerRelation", fields: [userId], references: [id])
-  address Address @relation(fields: [addressId], references: [id])
+  // Relations (opposites for other models)
+  buyer      User?       @relation("BuyerRelation", fields: [userId], references: [id])
+  address    Address?    @relation(fields: [addressId], references: [id])
+  orderItems OrderItem[]
+  payments   Payment[]
 }
 
-// Required for creating an OrderItem: orderId, productId, quantity, price
+model Payment {
+  id                String   @id @default(cuid())
+  orderId           String
+  razorpayOrderId   String?
+  razorpayPaymentId String?  @unique
+  method            String?
+  amount            Float
+  currency          String   @default("INR")
+  status            String
+  signature         String?
+  metaJson          String?
+  createdAt         DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([razorpayPaymentId])
+}
+
+/**
+ * ---------- Order Items ----------
+ */
 model OrderItem {
   orderId   String
   productId String
@@ -97,7 +118,9 @@ model OrderItem {
   @@id([orderId, productId])
 }
 
-// Required for creating a Rating: rating, review, userId, productId
+/**
+ * ---------- Ratings ----------
+ */
 model Rating {
   id        String   @id @default(cuid())
   rating    Int
@@ -115,18 +138,23 @@ model Rating {
   @@unique([userId, productId, orderId])
 }
 
+/**
+ * ---------- Coupon ----------
+ */
 model Coupon {
-    code        String   @id
-    description String
-    discount    Float
-    forNewUser  Boolean
-    forMember   Boolean  @default(false)
-    isPublic    Boolean
-    expiresAt   DateTime
-    createdAt   DateTime @default(now())
+  code        String   @id
+  description String
+  discount    Float
+  forNewUser  Boolean
+  forMember   Boolean  @default(false)
+  isPublic    Boolean
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
 }
 
-// Required for creating an Address: userId, name, email, street, city, state, zip, country, phone
+/**
+ * ---------- Addresses ----------
+ */
 model Address {
   id        String   @id @default(cuid())
   userId    String
@@ -141,6 +169,6 @@ model Address {
   createdAt DateTime @default(now())
 
   // Relations
-  Order Order[]
-  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[] // opposite side for Order.address
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

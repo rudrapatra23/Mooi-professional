@@ -1,98 +1,73 @@
+// app/api/razorpay/verify-payment/route.js
+import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { NextResponse } from "next/server";
-import { getAuth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req) {
   try {
-    const { userId } = getAuth(req);
-    if (!userId)
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+    const { userId, isSignedIn } = await auth();
+    if (!isSignedIn) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const body = await req.json();
     const {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      items,
-      total,
-      addressId,
-      gst,
-      shipping,
-      subtotal
+      localOrderId, // optional, helps locate the order in your DB
     } = body;
 
-    // Validate payload
-    if (
-      !razorpay_order_id ||
-      !razorpay_payment_id ||
-      !razorpay_signature ||
-      !Array.isArray(items)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid payment data" },
-        { status: 400 }
-      );
-    }
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature)
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
-    // 🔒 Verify Razorpay signature
-    const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+    // verify signature: hmac_sha256(order_id + '|' + payment_id, secret) == razorpay_signature
+    const generated_signature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    if (expected !== razorpay_signature) {
-      return NextResponse.json(
-        { error: "Payment signature invalid" },
-        { status: 400 }
-      );
+    if (generated_signature !== razorpay_signature) {
+      console.warn("Invalid signature", { generated_signature, razorpay_signature });
+      return NextResponse.json({ success: false, error: "Invalid signature" }, { status: 400 });
     }
 
-    // 🧾 Create DB order with snapshot pricing
-    const order = await prisma.order.create({
+    // signature valid — record payment
+    // find local order either by razorpayId or localOrderId
+    const order = localOrderId
+      ? await prisma.order.findUnique({ where: { id: localOrderId } })
+      : await prisma.order.findUnique({ where: { razorpayId: razorpay_order_id } });
+
+    if (!order) {
+      console.warn("Local order not found for", razorpay_order_id);
+      // create a minimal order record or return error per your policy
+    }
+
+    // record payment
+    const payment = await prisma.payment.create({
       data: {
-        userId,
-        addressId,
-        total,
-        paymentMethod: "RAZORPAY",
-        isPaid: true,
-        status: "PAID",
+        orderId: order ? order.id : null,
         razorpayOrderId: razorpay_order_id,
         razorpayPaymentId: razorpay_payment_id,
-        coupon: {
-          gst,
-          shipping,
-          subtotal,
-          total
-        },
-        orderItems: {
-          create: items.map((item) => ({
-            productId: item.id,
-            quantity: item.quantity,
-            price: item.price, // snapshot price
-            name: item.name,   // snapshot name
-            image: item.images?.[0] || null, // snapshot image
-          })),
-        },
+        method: body.method || null,
+        amount: Number(body.amount || 0) / 100, // if amount passed in paise
+        currency: body.currency || "INR",
+        status: "captured", // or check response to set correct status
+        signature: razorpay_signature,
+        metaJson: JSON.stringify(body),
       },
     });
 
-    // 🧹 Clear user’s cart after successful payment
-    await prisma.user.update({
-      where: { id: userId },
-      data: { cart: {} },
-    });
+    // update order status to 'paid'
+    if (order) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: "paid" },
+      });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Order created successfully",
-      orderId: order.id,
-    });
+    return NextResponse.json({ success: true, paymentId: payment.id });
   } catch (err) {
     console.error("verify-payment error:", err);
-    return NextResponse.json(
-      { error: "Server error verifying payment" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: err.message || "Failed to verify" }, { status: 500 });
   }
 }

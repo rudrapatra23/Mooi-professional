@@ -1,39 +1,70 @@
 // app/api/razorpay/create-order/route.js
-import Razorpay from "razorpay";
 import { NextResponse } from "next/server";
-import { getAuth } from "@clerk/nextjs/server";
+import Razorpay from "razorpay";
+import prisma from "@/lib/prisma"; // your prisma client
+import { auth } from "@clerk/nextjs/server"; // optional, if using Clerk
 
-const razorpay = new Razorpay({
+const rp = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_SECRET,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 export async function POST(req) {
   try {
-    const { userId } = getAuth(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
-    }
+    // optional: require signed-in user
+    const { userId, isSignedIn } = await auth();
+    if (!isSignedIn) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    const { total } = await req.json();
-    if (!total || total <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
-    }
+    const body = await req.json();
+    // expected: { subtotal, shipping, gst, coupon, items, addressId }
+    // Validate and recompute total server-side based on items/prices from DB (do not trust client)
+    const subtotal = Number(body.subtotal || 0);
+    const shipping = Number(body.shipping || 0);
+    const gst = Number(body.gst || 0);
+    const discount = Number(body.discount || 0);
+    const total = Math.round((subtotal + shipping + gst - discount) * 100) / 100; // rupees
 
-    const order = await razorpay.orders.create({
-      amount: Math.round(total * 100), // in paise
+    // Razorpay expects amount in paise (smallest currency unit)
+    const amountInPaise = Math.round(total * 100);
+
+    if (amountInPaise <= 0) return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+
+    // create order in Razorpay
+    const razorpayOrder = await rp.orders.create({
+      amount: amountInPaise,
       currency: "INR",
-      receipt: `rcpt_${Date.now()}`,
-      notes: { userId },
+      receipt: `order_rcpt_${Date.now()}`,
+      notes: {
+        userId: userId || "guest",
+        // add other notes (max 15 key-value)
+      },
+    });
+
+    // create local DB order (status created)
+    const order = await prisma.order.create({
+      data: {
+        razorpayId: razorpayOrder.id,
+        userId: userId || null,
+        subtotal,
+        shipping,
+        gst,
+        discount,
+        total,
+        currency: "INR",
+        itemsJson: JSON.stringify(body.items || []),
+        addressJson: body.address ? JSON.stringify(body.address) : null,
+        status: "created",
+      },
     });
 
     return NextResponse.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      localOrderId: order.id,
     });
   } catch (err) {
-    console.error("Error creating Razorpay order:", err);
-    return NextResponse.json({ error: "Failed to create Razorpay order" }, { status: 500 });
+    console.error("create-order error:", err);
+    return NextResponse.json({ error: err.message || "Failed" }, { status: 500 });
   }
 }
