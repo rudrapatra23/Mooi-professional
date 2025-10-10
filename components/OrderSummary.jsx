@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useMemo } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -5,6 +7,7 @@ import { useSelector, useDispatch } from "react-redux";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { clearCart } from "@/lib/features/cart/cartSlice";
+import AddressModal from "@/components/AddressModal"; // ✅ adjust path if different
 
 export default function OrderSummary({ totalPrice, items }) {
   const { user } = useUser();
@@ -16,6 +19,7 @@ export default function OrderSummary({ totalPrice, items }) {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
 
   const SHIPPING_CHARGE = 5;
@@ -38,13 +42,14 @@ export default function OrderSummary({ totalPrice, items }) {
 
       const token = await getToken();
 
-      // 1️⃣ Create Razorpay order
+      // 1️⃣ Create Razorpay order on server
       const { data: orderData } = await axios.post(
         "/api/razorpay/create-order",
         { total: payable },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // 2️⃣ Razorpay setup
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
@@ -54,7 +59,7 @@ export default function OrderSummary({ totalPrice, items }) {
         order_id: orderData.orderId,
         handler: async function (response) {
           try {
-            // 2️⃣ Verify payment & create final DB order
+            // 3️⃣ Verify payment & create final order in DB
             const verifyRes = await axios.post(
               "/api/razorpay/verify-payment",
               {
@@ -73,7 +78,6 @@ export default function OrderSummary({ totalPrice, items }) {
 
             if (verifyRes.data.success) {
               toast.success("Payment successful!");
-              // 🧹 Clear Redux + DB cart
               dispatch(clearCart());
               await axios.post(
                 "/api/cart",
@@ -99,10 +103,9 @@ export default function OrderSummary({ totalPrice, items }) {
 
       const rzp = new window.Razorpay(options);
       rzp.open();
-
-      rzp.on("payment.failed", function (resp) {
-        toast.error("Payment failed: " + resp.error.description);
-      });
+      rzp.on("payment.failed", (resp) =>
+        toast.error("Payment failed: " + resp.error.description)
+      );
     } catch (err) {
       console.error("Payment Error:", err);
       toast.error("Something went wrong during payment");
@@ -115,32 +118,52 @@ export default function OrderSummary({ totalPrice, items }) {
     <div className="w-full max-w-lg bg-slate-50/30 border border-slate-200 text-slate-600 text-sm rounded-xl p-7">
       <h2 className="text-xl font-medium text-slate-700 mb-4">Payment Summary</h2>
 
-      {/* Address Section */}
+      {/* 🏠 Address Section */}
       <div className="my-4 py-3 border-y border-slate-200">
         <p>Address</p>
+
         {selectedAddress ? (
-          <p>
-            {selectedAddress.name}, {selectedAddress.city},{" "}
-            {selectedAddress.state}, {selectedAddress.zip}
-          </p>
+          <div>
+            <p>
+              {selectedAddress.name}, {selectedAddress.city},{" "}
+              {selectedAddress.state}, {selectedAddress.zip}
+            </p>
+            <button
+              className="text-sm text-blue-600 underline mt-1"
+              onClick={() => setSelectedAddress(null)}
+            >
+              Change
+            </button>
+          </div>
         ) : (
-          <select
-            className="border border-slate-400 p-2 w-full my-3 outline-none rounded"
-            onChange={(e) =>
-              setSelectedAddress(addressList[e.target.value])
-            }
-          >
-            <option value="">Select Address</option>
-            {addressList.map((addr, i) => (
-              <option key={i} value={i}>
-                {addr.name}, {addr.city}, {addr.state}, {addr.zip}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              className="border border-slate-400 p-2 w-full my-3 outline-none rounded"
+              onChange={(e) => setSelectedAddress(addressList[e.target.value])}
+            >
+              <option value="">Select Address</option>
+              {addressList.map((addr, i) => (
+                <option key={i} value={i}>
+                  {addr.name}, {addr.city}, {addr.state}, {addr.zip}
+                </option>
+              ))}
+            </select>
+
+            <button
+              className="flex items-center gap-1 text-slate-600 mt-1 hover:text-slate-800"
+              onClick={() => setShowAddressModal(true)}
+            >
+              Add Address <span className="text-lg">＋</span>
+            </button>
+
+            {showAddressModal && (
+              <AddressModal setShowAddressModal={setShowAddressModal} />
+            )}
+          </>
         )}
       </div>
 
-      {/* Payment Summary */}
+      {/* 💰 Payment Summary */}
       <div className="pb-4 border-b border-slate-200">
         <div className="flex justify-between mb-1">
           <p>Subtotal:</p>
