@@ -81,8 +81,6 @@ model Order {
   // Relations
   user    User    @relation("BuyerRelation", fields: [userId], references: [id])
   address Address @relation(fields: [addressId], references: [id])
-  // storeId String   // ❌ removed
-  // store   Store    // ❌ removed
 }
 
 // Required for creating an OrderItem: orderId, productId, quantity, price
@@ -115,6 +113,17 @@ model Rating {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId, orderId])
+}
+
+model Coupon {
+    code        String   @id
+    description String
+    discount    Float
+    forNewUser  Boolean
+    forMember   Boolean  @default(false)
+    isPublic    Boolean
+    expiresAt   DateTime
+    createdAt   DateTime @default(now())
 }
 
 // Required for creating an Address: userId, name, email, street, city, state, zip, country, phone
