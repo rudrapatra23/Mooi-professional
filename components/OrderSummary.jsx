@@ -1,199 +1,271 @@
-"use client";
+import { PlusIcon, SquarePenIcon, XIcon } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import AddressModal from './AddressModal';
+import { useDispatch, useSelector } from 'react-redux';
+import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import { Protect, useAuth, useUser } from '@clerk/nextjs';
+import axios from 'axios';
+import { fetchCart } from '@/lib/features/cart/cartSlice';
 
-import { useState, useMemo } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
-import { useSelector, useDispatch } from "react-redux";
-import axios from "axios";
-import toast from "react-hot-toast";
-import { clearCart } from "@/lib/features/cart/cartSlice";
-import AddressModal from "@/components/AddressModal"; // ✅ adjust path if different
-
-export default function OrderSummary({ totalPrice, items }) {
+const OrderSummary = ({ totalPrice, items }) => {
   const { user } = useUser();
   const { getToken } = useAuth();
-  const router = useRouter();
   const dispatch = useDispatch();
+  const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '₹';
+  const router = useRouter();
 
   const addressList = useSelector((state) => state.address.list);
-  const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
+  const [paymentMethod, setPaymentMethod] = useState('COD');
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [isPlacing, setIsPlacing] = useState(false);
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [coupon, setCoupon] = useState('');
 
+  // 🧮 Constants
   const SHIPPING_CHARGE = 5;
   const GST_RATE = 0.18;
 
-  // 🧮 Snapshot calculations
-  const gstAmount = useMemo(() => totalPrice * GST_RATE, [totalPrice]);
-  const payable = useMemo(
-    () => totalPrice + SHIPPING_CHARGE + gstAmount,
-    [totalPrice, gstAmount]
+  // 🧮 Calculations
+  const discountAmount = coupon ? (coupon.discount / 100) * totalPrice : 0;
+  const gstAmount = useMemo(
+    () => ((totalPrice - discountAmount) * GST_RATE),
+    [totalPrice, discountAmount]
   );
 
-  const handlePlaceOrder = async () => {
-    if (isPlacing) return;
-    setIsPlacing(true);
+  const finalTotal = useMemo(() => {
+    // Include subtotal - discount + GST + shipping
+    return totalPrice - discountAmount + gstAmount + SHIPPING_CHARGE;
+  }, [totalPrice, discountAmount, gstAmount]);
 
+  const handleCouponCode = async (event) => {
+    event.preventDefault();
     try {
-      if (!user) return toast.error("Please login to continue");
-      if (!selectedAddress) return toast.error("Select an address first");
+      if (!user) {
+        return toast('Please login to proceed');
+      }
+      const token = await getToken();
+      const { data } = await axios.post(
+        '/api/coupon',
+        { code: couponCodeInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCoupon(data.coupon);
+      toast.success('Coupon Applied');
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message);
+    }
+  };
+
+  const handlePlaceOrder = async (e) => {
+    e.preventDefault();
+    try {
+      if (!user) {
+        return toast('Please login to place an order');
+      }
+      if (!selectedAddress) {
+        return toast('Please select an address');
+      }
 
       const token = await getToken();
 
-      // 1️⃣ Create Razorpay order on server
-      const { data: orderData } = await axios.post(
-        "/api/razorpay/create-order",
-        { total: payable },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // 2️⃣ Razorpay setup
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: orderData.amount,
-        currency: "INR",
-        name: "Mooi Professional",
-        description: "Secure Payment",
-        order_id: orderData.orderId,
-        handler: async function (response) {
-          try {
-            // 3️⃣ Verify payment & create final order in DB
-            const verifyRes = await axios.post(
-              "/api/razorpay/verify-payment",
-              {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                items,
-                total: payable,
-                addressId: selectedAddress.id,
-                gst: gstAmount,
-                shipping: SHIPPING_CHARGE,
-                subtotal: totalPrice,
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            if (verifyRes.data.success) {
-              toast.success("Payment successful!");
-              dispatch(clearCart());
-              await axios.post(
-                "/api/cart",
-                { cart: {} },
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              router.push("/orders");
-            } else {
-              toast.error("Payment verification failed.");
-            }
-          } catch (err) {
-            toast.error("Verification failed. Try again.");
-            console.error(err);
-          }
-        },
-        prefill: {
-          name: user.fullName,
-          email: user.primaryEmailAddress?.emailAddress,
-          contact: selectedAddress?.phone || "",
-        },
-        theme: { color: "#0f172a" },
+      const orderData = {
+        addressId: selectedAddress.id,
+        items,
+        paymentMethod,
+        gst: gstAmount, // ✅ include gst amount
+        shipping: SHIPPING_CHARGE,
+        total: finalTotal,
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-      rzp.on("payment.failed", (resp) =>
-        toast.error("Payment failed: " + resp.error.description)
-      );
-    } catch (err) {
-      console.error("Payment Error:", err);
-      toast.error("Something went wrong during payment");
-    } finally {
-      setIsPlacing(false);
+      if (coupon) {
+        orderData.couponCode = coupon.code;
+      }
+
+      // create order
+      const { data } = await axios.post('/api/orders', orderData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (paymentMethod === 'RAZORPAY') {
+        window.location.href = data.session.url;
+      } else {
+        toast.success(data.message);
+        router.push('/orders');
+        dispatch(fetchCart({ getToken }));
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message);
     }
   };
 
   return (
-    <div className="w-full max-w-lg bg-slate-50/30 border border-slate-200 text-slate-600 text-sm rounded-xl p-7">
-      <h2 className="text-xl font-medium text-slate-700 mb-4">Payment Summary</h2>
+    <div className="w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm rounded-xl p-7">
+      <h2 className="text-xl font-medium text-slate-600">Payment Summary</h2>
+      <p className="text-slate-400 text-xs my-4">Payment Method</p>
 
-      {/* 🏠 Address Section */}
-      <div className="my-4 py-3 border-y border-slate-200">
+      {/* Payment Method */}
+      <div className="flex gap-2 items-center">
+        <input
+          type="radio"
+          id="COD"
+          onChange={() => setPaymentMethod('COD')}
+          checked={paymentMethod === 'COD'}
+          className="accent-gray-500"
+        />
+        <label htmlFor="COD" className="cursor-pointer">
+          COD
+        </label>
+      </div>
+      <div className="flex gap-2 items-center mt-1">
+        <input
+          type="radio"
+          id="RAZORPAY"
+          name="payment"
+          onChange={() => setPaymentMethod('RAZORPAY')}
+          checked={paymentMethod === 'RAZORPAY'}
+          className="accent-gray-500"
+        />
+        <label htmlFor="RAZORPAY" className="cursor-pointer">
+          RAZORPAY Payment
+        </label>
+      </div>
+
+      {/* Address Section */}
+      <div className="my-4 py-4 border-y border-slate-200 text-slate-400">
         <p>Address</p>
-
         {selectedAddress ? (
-          <div>
+          <div className="flex gap-2 items-center">
             <p>
-              {selectedAddress.name}, {selectedAddress.city},{" "}
+              {selectedAddress.name}, {selectedAddress.city},{' '}
               {selectedAddress.state}, {selectedAddress.zip}
             </p>
-            <button
-              className="text-sm text-blue-600 underline mt-1"
+            <SquarePenIcon
               onClick={() => setSelectedAddress(null)}
-            >
-              Change
-            </button>
+              className="cursor-pointer"
+              size={18}
+            />
           </div>
         ) : (
-          <>
-            <select
-              className="border border-slate-400 p-2 w-full my-3 outline-none rounded"
-              onChange={(e) => setSelectedAddress(addressList[e.target.value])}
-            >
-              <option value="">Select Address</option>
-              {addressList.map((addr, i) => (
-                <option key={i} value={i}>
-                  {addr.name}, {addr.city}, {addr.state}, {addr.zip}
-                </option>
-              ))}
-            </select>
-
+          <div>
+            {addressList.length > 0 && (
+              <select
+                className="border border-slate-400 p-2 w-full my-3 outline-none rounded"
+                onChange={(e) =>
+                  setSelectedAddress(addressList[e.target.value])
+                }
+              >
+                <option value="">Select Address</option>
+                {addressList.map((address, index) => (
+                  <option key={index} value={index}>
+                    {address.name}, {address.city}, {address.state},{' '}
+                    {address.zip}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
-              className="flex items-center gap-1 text-slate-600 mt-1 hover:text-slate-800"
+              className="flex items-center gap-1 text-slate-600 mt-1"
               onClick={() => setShowAddressModal(true)}
             >
-              Add Address <span className="text-lg">＋</span>
+              Add Address <PlusIcon size={18} />
             </button>
-
-            {showAddressModal && (
-              <AddressModal setShowAddressModal={setShowAddressModal} />
-            )}
-          </>
+          </div>
         )}
       </div>
 
-      {/* 💰 Payment Summary */}
+      {/* Coupon + Summary */}
       <div className="pb-4 border-b border-slate-200">
-        <div className="flex justify-between mb-1">
-          <p>Subtotal:</p>
-          <p>{currency}{totalPrice.toFixed(2)}</p>
+        <div className="flex justify-between">
+          <div className="flex flex-col gap-1 text-slate-400">
+            <p>Subtotal:</p>
+            <p>Shipping:</p>
+            <p>GST (18%):</p>
+            {coupon && <p>Coupon:</p>}
+          </div>
+          <div className="flex flex-col gap-1 font-medium text-right">
+            <p>
+              {currency}
+              {totalPrice.toLocaleString()}
+            </p>
+            <p>
+              <Protect plan={'plus'} fallback={`${currency}5`}>
+                Free
+              </Protect>
+            </p>
+            <p>
+              {currency}
+              {gstAmount.toFixed(2)}
+            </p>
+            {coupon && (
+              <p>
+                -{currency}
+                {(coupon.discount / 100 * totalPrice).toFixed(2)}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="flex justify-between mb-1">
-          <p>Shipping:</p>
-          <p>{currency}{SHIPPING_CHARGE.toFixed(2)}</p>
-        </div>
-        <div className="flex justify-between mb-1">
-          <p>GST (18%):</p>
-          <p>{currency}{gstAmount.toFixed(2)}</p>
-        </div>
-        <div className="flex justify-between font-semibold text-slate-800 border-t mt-2 pt-2">
-          <p>Payable:</p>
-          <p>{currency}{payable.toFixed(2)}</p>
-        </div>
+
+        {/* Coupon input */}
+        {!coupon ? (
+          <form
+            onSubmit={(e) =>
+              toast.promise(handleCouponCode(e), {
+                loading: 'Checking Coupon...',
+              })
+            }
+            className="flex justify-center gap-3 mt-3"
+          >
+            <input
+              onChange={(e) => setCouponCodeInput(e.target.value)}
+              value={couponCodeInput}
+              type="text"
+              placeholder="Coupon Code"
+              className="border border-slate-400 p-1.5 rounded w-full outline-none"
+            />
+            <button className="bg-slate-600 text-white px-3 rounded hover:bg-slate-800 active:scale-95 transition-all">
+              Apply
+            </button>
+          </form>
+        ) : (
+          <div className="w-full flex items-center justify-center gap-2 text-xs mt-2">
+            <p>
+              Code: <span className="font-semibold ml-1">{coupon.code.toUpperCase()}</span>
+            </p>
+            <p>{coupon.description}</p>
+            <XIcon
+              size={18}
+              onClick={() => setCoupon('')}
+              className="hover:text-red-700 transition cursor-pointer"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Total */}
+      <div className="flex justify-between py-4">
+        <p>Total:</p>
+        <p className="font-medium text-right">
+          {currency}
+          {finalTotal.toFixed(2)}
+        </p>
       </div>
 
       <button
-        onClick={handlePlaceOrder}
-        disabled={isPlacing}
-        className={`w-full mt-4 py-2.5 rounded text-white transition-all ${
-          isPlacing
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-slate-700 hover:bg-slate-900"
-        }`}
+        onClick={(e) =>
+          toast.promise(handlePlaceOrder(e), { loading: 'Placing Order...' })
+        }
+        className="w-full bg-slate-700 text-white py-2.5 rounded hover:bg-slate-900 active:scale-95 transition-all"
       >
-        {isPlacing ? "Processing..." : "Pay Now"}
+        Place Order
       </button>
+
+      {showAddressModal && (
+        <AddressModal setShowAddressModal={setShowAddressModal} />
+      )}
     </div>
   );
-}
+};
+
+export default OrderSummary;
