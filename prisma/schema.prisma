@@ -55,27 +55,29 @@ enum OrderStatus {
 
 enum PaymentMethod {
   RAZORPAY
+  COD
 }
 
 /**
  * ---------- Orders & Payments ----------
  */
 model Order {
-  id          String   @id @default(cuid())
-  razorpayId  String?  @unique
-  userId      String? // FK to User.id (buyer)
-  addressId   String? // FK to Address.id (delivery)
-  subtotal    Float
-  shipping    Float
-  gst         Float
-  discount    Float    @default(0)
-  total       Float
-  currency    String   @default("INR")
-  itemsJson   String
-  addressJson String?
-  status      String   @default("created")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String        @id @default(cuid())
+  razorpayId    String?       @unique
+  userId        String?
+  addressId     String?
+  subtotal      Float         @default(0)     // default added for safe migration
+  shipping      Float         @default(0)     // default added for safe migration
+  gst           Float         @default(0)     // default added for safe migration
+  discount      Float         @default(0)
+  total         Float
+  currency      String        @default("INR")
+  itemsJson     String        @default("[]")  // default added for safe migration
+  addressJson   String?
+  status        String        @default("created")
+  paymentMethod PaymentMethod @default(COD)   // new enum field
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   // Relations (opposites for other models)
   buyer      User?       @relation("BuyerRelation", fields: [userId], references: [id])
