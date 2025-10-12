@@ -56,7 +56,7 @@ function createEmailHtml({
   discount = 0,
   isBuyer = true
 }) {
-  const logoUrl = `${BASE}/logo.png`;
+  const logoUrl = process.env.EMAIL_LOGO_URL || `${BASE}/logo.png`;
   const itemsHtml = itemsTableHtml(items);
   const total = Number(subtotal || 0) + Number(shipping || 0) + Number(gst || 0) - Number(discount || 0);
   const primaryColor = "#000000";

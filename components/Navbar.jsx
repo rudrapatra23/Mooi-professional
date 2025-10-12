@@ -75,13 +75,12 @@ const Navbar = () => {
           {/* Left: Logo */}
           <Link href="/" className="flex items-center gap-3">
             <Image
-              src={logo}
-              alt="logo"
-              width={160}
-              height={48}
-              className="w-[160px] h-auto"
-              priority
-            />
+  src="/logo.png"
+  alt="Mooi Professional"
+  width={120}    // set actual pixel width
+  height={40}    // set actual pixel height
+  priority
+/>
           </Link>
 
           {/* Desktop menu */}
