@@ -1,30 +1,65 @@
-// app/api/razorpay/webhook/route.js
+// app/api/webhooks/razorpay/route.js
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import prisma from "@/lib/prisma";
+import crypto from "crypto";
+
+/**
+ * Razorpay webhook receiver.
+ * - Verify header x-razorpay-signature with raw body using secret
+ * - Handle important events (payment.captured)
+ */
 
 export async function POST(req) {
-  const body = await req.text(); // raw text needed for signature
-  const signature = req.headers.get("x-razorpay-signature") || "";
+  try {
+    const raw = await req.text();
+    const signature = req.headers.get("x-razorpay-signature");
+    if (!signature) return NextResponse.json({ ok: false }, { status: 400 });
 
-  const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
-    .update(body)
-    .digest("hex");
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      console.error("[webhook] missing secret");
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
 
-  if (expected !== signature) {
-    return NextResponse.json({ ok: false, error: "Invalid signature" }, { status: 400 });
+    // compute expected signature
+    const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET).update(raw).digest("hex");
+    if (expected !== signature) {
+      console.warn("[webhook] invalid signature");
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+
+    const payload = JSON.parse(raw);
+    const event = payload.event;
+    // handle a few important events
+    if (event === "payment.captured" || event === "payment.authorized") {
+      const rp = payload.payload?.payment?.entity;
+      if (rp && rp.order_id) {
+        const razorOrderId = rp.order_id;
+        const razorPaymentId = rp.id;
+        // Mark payment/order as success (idempotent)
+        await prisma.$transaction(async (tx) => {
+          const payment = await tx.payment.findFirst({ where: { razorpayOrderId: razorOrderId } });
+          if (payment) {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                razorpayPaymentId: razorPaymentId,
+                status: "SUCCESS",
+                signature: signature,
+              },
+            });
+            await tx.order.update({
+              where: { id: payment.orderId },
+              data: { status: "PROCESSING", razorpayId: razorOrderId },
+            });
+          }
+        });
+      }
+    }
+
+    // always respond 200 quickly to webhook
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[webhook] error:", err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
-
-  const payload = JSON.parse(body);
-
-  // handle events
-  if (payload.event === "payment.captured") {
-    const paymentId = payload.payload.payment.entity.id;
-    const orderId = payload.payload.payment.entity.order_id;
-    const amount = payload.payload.payment.entity.amount;
-    // update DB accordingly: set payment.status = captured, order.status = paid, etc.
-  }
-
-  return NextResponse.json({ ok: true });
 }

@@ -1,48 +1,91 @@
 // app/order-success/page.jsx
 'use client';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
+import Lottie from 'lottie-react';
 
 export default function OrderSuccess() {
   const params = useSearchParams();
   const router = useRouter();
   const orderId = params?.get('orderId');
+
+  // default: do NOT auto-redirect (user chooses)
+  const [autoRedirectActive, setAutoRedirectActive] = useState(false);
   const [countdown, setCountdown] = useState(6);
   const [copied, setCopied] = useState(false);
-  const [autoRedirectActive, setAutoRedirectActive] = useState(true);
+  const [lottieAnim, setLottieAnim] = useState(null);
+  const [lottieLoaded, setLottieLoaded] = useState(false);
 
+  // track whether animation finished — we can enable buttons or show CTA
+  const [animDone, setAnimDone] = useState(false);
+  const countdownRef = useRef(null);
+
+  // load lottie JSON (optional)
   useEffect(() => {
-    if (!autoRedirectActive) return;
-    const t = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(t);
-          // try to navigate safely
-          safeNavigateToOrders();
-          return 0;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/lottie/success.json');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) {
+          setLottieAnim(json);
+          setLottieLoaded(true);
         }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
+      } catch (e) {
+        // ignore, fallback to emoji
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // start / stop auto-redirect countdown
+  useEffect(() => {
+    if (!autoRedirectActive) {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+      setCountdown(6);
+      return;
+    }
+
+    // start countdown
+    if (!countdownRef.current) {
+      countdownRef.current = setInterval(() => {
+        setCountdown((c) => {
+          if (c <= 1) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+            safeNavigateToOrders();
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRedirectActive]);
 
   const safeNavigateToOrders = async () => {
-    // try deep-link with orderId first
     try {
       if (orderId) {
         await router.push(`/orders?orderId=${encodeURIComponent(orderId)}`);
         return;
       }
-      // otherwise push /orders
       await router.push('/orders');
     } catch (err) {
-      // fallback to home if /orders doesn't exist
       try {
         await router.push('/');
       } catch {
-        // last resort: full reload to root
         window.location.href = '/';
       }
     }
@@ -71,6 +114,11 @@ export default function OrderSuccess() {
     }
   };
 
+  // Called when Lottie finishes (if we can detect). We'll use a timeout fallback too.
+  const onAnimComplete = () => {
+    setAnimDone(true);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-white to-slate-50">
       <motion.div
@@ -80,10 +128,23 @@ export default function OrderSuccess() {
         className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6"
       >
         <div className="flex flex-col items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
-            <svg className="w-10 h-10 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M20 6L9 17l-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <div className="w-24 h-24 rounded-full bg-green-600 flex items-center justify-center">
+            {/* Lottie or fallback icon */}
+            {lottieLoaded && lottieAnim ? (
+              // loop false so plays once
+              <div className="w-20 h-20">
+                <Lottie
+                  animationData={lottieAnim}
+                  loop={false}
+                  onComplete={onAnimComplete}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </div>
+            ) : (
+              <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M20 6L9 17l-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </div>
 
           <h1 className="text-2xl font-semibold text-slate-800 text-center">Order Confirmed</h1>
@@ -113,24 +174,15 @@ export default function OrderSuccess() {
               Continue Shopping
             </button>
 
-            <button
-              onClick={() => { setAutoRedirectActive(false); handleViewOrders(); }}
-              className="w-full px-4 py-3 rounded-lg border border-slate-200 text-slate-800 bg-white text-base font-medium"
-            >
-              View Orders {orderId ? `(${countdown}s)` : `(${countdown}s)`}
-            </button>
+           
           </div>
 
+
+          {/* small note and ability to cancel */}
           <div className="w-full text-center mt-2">
             <p className="text-xs text-slate-400">
-              Tip: Use <strong>View Orders</strong> to track delivery. You will be redirected in {countdown}s.
+              Tip: You can copy the Order ID or view Orders to track delivery.
             </p>
-            <button
-              onClick={() => setAutoRedirectActive(false)}
-              className="mt-2 text-xs text-amber-600 underline"
-            >
-              Cancel auto-redirect
-            </button>
           </div>
         </div>
       </motion.div>

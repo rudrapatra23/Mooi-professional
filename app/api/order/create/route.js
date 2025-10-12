@@ -3,202 +3,189 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import Razorpay from "razorpay";
+import { z } from "zod";
 
-/**
- * Single-vendor robust create route:
- *  - Accepts items in multiple shapes (items/cart/products)
- *  - Creates Order row, then OrderItem rows, then Payment row
- *  - Returns full order with relations
- *  - Supports COD and RAZORPAY
- */
+// request schema
+const ItemSchema = z.object({
+  id: z.string().min(1),
+  quantity: z.number().int().positive(),
+  price: z.number().nonnegative().optional(),
+});
 
-function tryGetItems(body) {
-  if (!body) return null;
-  if (Array.isArray(body.items) && body.items.length) return body.items;
-  if (Array.isArray(body.cart) && body.cart.length) return body.cart;
-  if (Array.isArray(body.products) && body.products.length) return body.products;
-  if (body.items && typeof body.items === "object" && !Array.isArray(body.items)) {
-    const map = body.items;
-    const arr = Object.keys(map).map(k => ({ id: k, quantity: map[k] }));
-    if (arr.length) return arr;
+const CreateOrderSchema = z.object({
+  addressId: z.string().min(1),
+  paymentMethod: z.enum(["COD", "RAZORPAY"]),
+  items: z.array(ItemSchema).min(1),
+  gst: z.number().nonnegative().optional(),
+  shipping: z.number().nonnegative().optional(),
+  total: z.number().nonnegative().optional(),
+  couponCode: z.string().optional(),
+  discount: z.number().nonnegative().optional(),
+  currency: z.string().optional(),
+});
+
+function safeJsonParse(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
   }
-  return null;
-}
-
-function parseAddressId(body) {
-  if (!body) return null;
-  if (body.addressId) return body.addressId;
-  if (body.address && (body.address.id || body.address._id)) return body.address.id ?? body.address._id;
-  return null;
-}
-
-function parsePaymentMethod(body) {
-  if (!body) return null;
-  return body.paymentMethod ?? body.payment ?? body.method ?? null;
 }
 
 export async function POST(req) {
   try {
     const { userId } = getAuth(req);
-    console.log("[order-create] getAuth userId:", userId);
-
-    if (!userId) return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
+    if (!userId) {
+      return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
+    }
 
     const body = await req.json().catch(() => null);
-    console.log("[order-create] raw body:", JSON.stringify(body));
+    if (!body) {
+      return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
+    }
 
-    const addressId = parseAddressId(body);
-    const paymentMethod = parsePaymentMethod(body);
-    const rawItems = tryGetItems(body);
-
-    const validation = {
-      addressId: !!addressId ? addressId : null,
-      paymentMethod: paymentMethod ?? null,
-      itemsFound: !!rawItems,
-      itemsCount: Array.isArray(rawItems) ? rawItems.length : 0,
-    };
-
-    if (!addressId || !paymentMethod || !Array.isArray(rawItems) || rawItems.length === 0) {
+    const parse = CreateOrderSchema.safeParse(body);
+    if (!parse.success) {
+      // friendly validation message
+      const first = parse.error.errors[0];
       return NextResponse.json({
         ok: false,
-        error: "missing_order_details",
-        message: "Request missing one or more required fields",
-        validation,
-        hint: "Expected: { addressId: string, paymentMethod: 'COD'|'RAZORPAY', items: [{ id, quantity, price? }] }",
+        error: "validation_error",
+        message: first.message,
+        field: first.path.join("."),
       }, { status: 400 });
     }
 
-    // Normalize items and validate product existence
-    const normalized = [];
+    const { addressId, paymentMethod, items, gst: gstOverride, shipping: shippingOverride, couponCode, discount: discountOverride, currency } = parse.data;
+
+    // normalize & verify products exist and compute subtotal
+    const products = [];
     let subtotal = 0;
-    for (const it of rawItems) {
-      const productId = it.id ?? it.productId ?? (it.product && (it.product.id || it.product._id));
-      const qty = Number(it.quantity ?? it.qty ?? 1);
-      if (!productId) {
-        return NextResponse.json({ ok: false, error: "invalid_item", message: "Item missing product id", item: it }, { status: 400 });
-      }
-      const product = await prisma.product.findUnique({ where: { id: productId } });
+    for (const it of items) {
+      const product = await prisma.product.findUnique({ where: { id: it.id } });
       if (!product) {
-        return NextResponse.json({ ok: false, error: "product_not_found", message: `Product not found: ${productId}`, item: it }, { status: 404 });
+        return NextResponse.json({ ok: false, error: "product_not_found", message: "One of the products is not available" }, { status: 404 });
       }
       const price = Number(product.price ?? it.price ?? 0);
-      subtotal += price * qty;
-      normalized.push({ productId, quantity: qty, price });
+      subtotal += price * it.quantity;
+      products.push({ productId: it.id, quantity: it.quantity, price });
     }
 
-    // compute totals
-    const SHIPPING_FEE = Number(body.shipping ?? 5);
-    const GST_RATE = Number(body.gstRate ?? 0.18);
+    const SHIPPING_FEE = Number(shippingOverride ?? 5);
+    const GST_RATE = Number(gstOverride ?? 0.18);
     const gstAmount = parseFloat((subtotal * GST_RATE).toFixed(2));
-    const total = parseFloat((subtotal + gstAmount + SHIPPING_FEE).toFixed(2));
+    const finalTotal = parseFloat(((subtotal - Number(discountOverride ?? 0)) + gstAmount + SHIPPING_FEE).toFixed(2));
 
-    // serialize items/address as JSON for quick reference (your schema has itemsJson/addressJson)
-    const itemsJson = JSON.stringify(normalized);
+    // prepare serialized fields
+    const itemsJson = JSON.stringify(products);
     let addressJson = null;
-    // try to fetch Address from DB if addressId present
-    if (addressId) {
-      try {
-        const addr = await prisma.address.findUnique({ where: { id: addressId } });
-        if (addr) addressJson = JSON.stringify(addr);
-      } catch (e) {
-        // ignore, optional
-        addressJson = null;
-      }
+    try {
+      const addr = await prisma.address.findUnique({ where: { id: addressId } });
+      if (addr) addressJson = JSON.stringify(addr);
+    } catch (e) {
+      addressJson = null;
     }
 
-    // === Create order row first (no nested create) ===
-    // use schema fields: subtotal, shipping, gst, discount, total, currency, itemsJson, addressJson, status, paymentMethod
-    const orderCreateData = {
-      userId,
-      addressId,
-      subtotal,
-      shipping: SHIPPING_FEE,
-      gst: gstAmount,
-      discount: Number(body.discount ?? 0),
-      total,
-      currency: body.currency ?? "INR",
-      itemsJson,
-      addressJson,
-      status: paymentMethod === "COD" ? "ORDER_PLACED" : "PENDING",
-      paymentMethod: paymentMethod, // relies on enum PaymentMethod in schema
-    };
+    // Transaction: create order -> items -> payment (atomic)
+    const createResult = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.create({
+        data: {
+          userId,
+          addressId,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          shipping: parseFloat(SHIPPING_FEE.toFixed(2)),
+          gst: gstAmount,
+          discount: Number(discountOverride ?? 0),
+          total: finalTotal,
+          currency: currency ?? "INR",
+          itemsJson,
+          addressJson,
+          status: paymentMethod === "COD" ? "ORDER_PLACED" : "PENDING",
+          paymentMethod,
+        },
+      });
 
-    const order = await prisma.order.create({ data: orderCreateData });
-    console.log("[order-create] created order id:", order.id);
+      // OrderItems (composite PK)
+      const itemsToInsert = products.map(p => ({
+        orderId: order.id,
+        productId: p.productId,
+        quantity: p.quantity,
+        price: p.price,
+      }));
 
-    // === create order items (OrderItem model) ===
-    // OrderItem model in your schema is composite PK [orderId, productId] with fields: orderId, productId, quantity, price
-    const itemsToInsert = normalized.map(it => ({
-      orderId: order.id,
-      productId: it.productId,
-      quantity: it.quantity,
-      price: it.price,
-    }));
+      // createMany (composite PK supported)
+      if (itemsToInsert.length) {
+        await tx.orderItem.createMany({ data: itemsToInsert, skipDuplicates: true });
+      }
 
-    // createMany for OrderItem (works with composite PK)
-    await prisma.orderItem.createMany({
-      data: itemsToInsert,
-      skipDuplicates: true,
+      // payments row (pending for razorpay)
+      const paymentRow = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          method: paymentMethod,
+          amount: finalTotal,
+          currency: "INR",
+          status: paymentMethod === "COD" ? "SUCCESS" : "PENDING",
+        },
+      });
+
+      return { order, payment: paymentRow };
     });
 
-    // === create Payment row ===
-    const paymentData = {
-      orderId: order.id,
-      method: paymentMethod,
-      amount: total,
-      currency: "INR",
-      status: paymentMethod === "COD" ? "SUCCESS" : "PENDING",
-    };
-
-    // for Razorpay, create razor order and attach razorpayOrderId
+    // After transaction: if RAZORPAY, create razor order and update payment. We do this outside transaction
     if (paymentMethod === "RAZORPAY") {
       if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-        return NextResponse.json({ ok: false, error: "razorpay_not_configured" }, { status: 500 });
+        // Log server-side but return friendly message
+        console.error("[order-create] razorpay not configured");
+        return NextResponse.json({ ok: false, error: "payment_unavailable", message: "Payment provider not configured" }, { status: 500 });
       }
-      const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
-      const razorOrder = await razorpay.orders.create({
-        amount: Math.round(total * 100),
-        currency: "INR",
-        receipt: `rcpt_${Date.now()}`,
+
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
       });
-      paymentData.razorpayOrderId = razorOrder.id;
-      paymentData.status = "PENDING";
-      // create payment row with razorpayOrderId
-      await prisma.payment.create({ data: paymentData });
-      // return full order + razorpay info
+
+      const razorOrder = await razorpay.orders.create({
+        amount: Math.round(createResult.order.total * 100),
+        currency: "INR",
+        receipt: `rcpt_${createResult.order.id}_${Date.now()}`,
+      });
+
+      // attach razorpayOrderId to payment record
+      await prisma.payment.updateMany({
+        where: { orderId: createResult.order.id },
+        data: { razorpayOrderId: razorOrder.id, status: "PENDING" },
+      });
+
+      // fetch full order minimal safe object to return
       const fullOrder = await prisma.order.findUnique({
-        where: { id: order.id },
+        where: { id: createResult.order.id },
         include: { orderItems: { include: { product: true } }, payments: true, address: true, buyer: true },
       });
 
-      console.log("[order-create] razorpay order created:", razorOrder.id);
       return NextResponse.json({
         ok: true,
-        message: "Razorpay order created",
+        message: "payment_initiated",
         razorpayOrderId: razorOrder.id,
         amount: razorOrder.amount,
         currency: razorOrder.currency,
         keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        order: fullOrder,
+        order: { id: fullOrder.id },
       });
     }
 
-    // COD payment (create success payment)
-    await prisma.payment.create({ data: paymentData });
+    // COD: clear cart and return sanitized order
+    await prisma.user.update({ where: { id: createResult.order.userId }, data: { cart: {} } });
 
-    // Clear user cart
-    await prisma.user.update({ where: { id: userId }, data: { cart: {} } });
-
-    // fetch and return full order with relations
-    const fullOrder = await prisma.order.findUnique({
-      where: { id: order.id },
+    const returned = await prisma.order.findUnique({
+      where: { id: createResult.order.id },
       include: { orderItems: { include: { product: true } }, payments: true, address: true, buyer: true },
     });
 
-    console.log("[order-create] COD order completed:", JSON.stringify(fullOrder, null, 2));
-    return NextResponse.json({ ok: true, message: "Order placed (COD)", order: fullOrder });
+    return NextResponse.json({ ok: true, message: "order_created", order: { id: returned.id } });
   } catch (err) {
+    // log server-side, but do NOT send stack trace to client
     console.error("[order-create] unexpected error:", err);
-    return NextResponse.json({ ok: false, error: err?.message || "internal" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "internal_server_error", message: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

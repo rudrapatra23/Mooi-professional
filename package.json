@@ -21,6 +21,7 @@
     "framer-motion": "^12.23.22",
     "imagekit": "^6.0.0",
     "inngest": "^3.42.3",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.525.0",
     "next": "15.3.5",
     "openai": "^5.19.1",

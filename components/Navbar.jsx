@@ -90,18 +90,17 @@ const Navbar = () => {
               {/* Products Link */}
               <Link href="/shop" prefetch className="relative group">
                 Products
-                <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-emerald-600 transition-all group-hover:w-full" />
+                <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
               </Link>
 
               {/* Static Links */}
               {[
                 { href: "/", label: "Home" },
                 { href: "/about", label: "About" },
-                { href: "/contact", label: "Contact" },
               ].map((item) => (
                 <Link key={item.href} href={item.href} className="relative group">
                   {item.label}
-                  <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-emerald-600 transition-all group-hover:w-full" />
+                  <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
                 </Link>
               ))}
             </nav>
@@ -250,13 +249,6 @@ const Navbar = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     About
-                  </Link>
-                  <Link
-                    href="/contact"
-                    className="p-2 hover:bg-slate-100 rounded"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Contact
                   </Link>
 
                   <div className="border-t my-1" />
