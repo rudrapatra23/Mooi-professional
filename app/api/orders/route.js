@@ -214,9 +214,7 @@ export async function GET(req) {
       console.error("[orders][user] DB error while fetching user's orders:", dbErr?.message ?? dbErr);
       if (dbErr?.stack) console.error(dbErr.stack);
 
-      // if DB is truly fine (as you said) but prisma query failed due to schema mismatch,
-      // return a helpful 500 with details in server logs. We avoid returning mock data here
-      // because you said DB is OK and you don't want fake responses.
+      
       return NextResponse.json({
         ok: false,
         error: "database_query_failed",
