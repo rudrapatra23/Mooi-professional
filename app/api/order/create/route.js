@@ -1,165 +1,201 @@
-// app/api/order/create/route.js
 import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import Razorpay from "razorpay";
-import { z } from "zod";
 
-// request schema
-const ItemSchema = z.object({
-  id: z.string().min(1),
-  quantity: z.number().int().positive(),
-  price: z.number().nonnegative().optional(),
-});
+/**
+ * Strict single-vendor order create:
+ * - Recomputes totals server-side from product prices
+ * - Compares with client total (tolerance 0.5)
+ * - Logs computed vs client totals
+ * - Creates order, orderItems, payment atomically
+ *
+ * Added debug logs to help diagnose total mismatches (no variable renames).
+ */
 
-const CreateOrderSchema = z.object({
-  addressId: z.string().min(1),
-  paymentMethod: z.enum(["COD", "RAZORPAY"]),
-  items: z.array(ItemSchema).min(1),
-  gst: z.number().nonnegative().optional(),
-  shipping: z.number().nonnegative().optional(),
-  total: z.number().nonnegative().optional(),
-  couponCode: z.string().optional(),
-  discount: z.number().nonnegative().optional(),
-  currency: z.string().optional(),
-});
-
-function safeJsonParse(raw) {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+function tryGetItems(body) {
+  if (!body) return null;
+  if (Array.isArray(body.items) && body.items.length) return body.items;
+  if (Array.isArray(body.cart) && body.cart.length) return body.cart;
+  if (Array.isArray(body.products) && body.products.length) return body.products;
+  if (body.items && typeof body.items === "object" && !Array.isArray(body.items)) {
+    const map = body.items;
+    const arr = Object.keys(map).map(k => ({ id: k, quantity: map[k] }));
+    if (arr.length) return arr;
   }
+  return null;
+}
+
+function parseAddressId(body) {
+  if (!body) return null;
+  if (body.addressId) return body.addressId;
+  if (body.address && (body.address.id || body.address._id)) return body.address.id ?? body.address._id;
+  return null;
 }
 
 export async function POST(req) {
   try {
     const { userId } = getAuth(req);
-    if (!userId) {
-      return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
 
     const body = await req.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
+    console.log("[order-create] raw body:", JSON.stringify(body));
+
+    const addressId = parseAddressId(body);
+    const paymentMethod = (body.paymentMethod ?? body.payment ?? body.method ?? "").toUpperCase();
+    const rawItems = tryGetItems(body);
+    const clientTotal = typeof body.total === "number" ? Number(body.total) : null;
+
+    // keep client-provided GST (monetary) for logging/diagnosis, but don't treat it as a rate automatically
+    const clientGstMonetary = (typeof body.gst === "number" && body.gst > 1) ? Number(body.gst) : null;
+    const clientShipping = typeof body.shipping === "number" ? Number(body.shipping) : null;
+
+    if (!addressId || !paymentMethod || !Array.isArray(rawItems) || rawItems.length === 0) {
+      return NextResponse.json({ ok: false, error: "missing_order_details" }, { status: 400 });
     }
 
-    const parse = CreateOrderSchema.safeParse(body);
-    if (!parse.success) {
-      // friendly validation message
-      const first = parse.error.errors[0];
-      return NextResponse.json({
-        ok: false,
-        error: "validation_error",
-        message: first.message,
-        field: first.path.join("."),
-      }, { status: 400 });
-    }
-
-    const { addressId, paymentMethod, items, gst: gstOverride, shipping: shippingOverride, couponCode, discount: discountOverride, currency } = parse.data;
-
-    // normalize & verify products exist and compute subtotal
-    const products = [];
+    // Normalize and compute subtotal using authoritative DB prices
     let subtotal = 0;
-    for (const it of items) {
-      const product = await prisma.product.findUnique({ where: { id: it.id } });
-      if (!product) {
-        return NextResponse.json({ ok: false, error: "product_not_found", message: "One of the products is not available" }, { status: 404 });
-      }
+    const normalized = [];
+    for (const it of rawItems) {
+      const productId = it.id ?? it.productId ?? (it.product && (it.product.id || it.product._id));
+      const qty = Number(it.quantity ?? it.qty ?? 1);
+      if (!productId) return NextResponse.json({ ok: false, error: "invalid_item", message: "item missing id" }, { status: 400 });
+
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+      if (!product) return NextResponse.json({ ok: false, error: "product_not_found", message: `Product ${productId} not found` }, { status: 404 });
+
       const price = Number(product.price ?? it.price ?? 0);
-      subtotal += price * it.quantity;
-      products.push({ productId: it.id, quantity: it.quantity, price });
+      normalized.push({ productId, quantity: qty, price });
+      subtotal += price * qty;
     }
 
-    const SHIPPING_FEE = Number(shippingOverride ?? 5);
-    const GST_RATE = Number(gstOverride ?? 0.18);
-    const gstAmount = parseFloat((subtotal * GST_RATE).toFixed(2));
-    const finalTotal = parseFloat(((subtotal - Number(discountOverride ?? 0)) + gstAmount + SHIPPING_FEE).toFixed(2));
+    // server-side totals
+    const SHIPPING_FEE = Number(body.shipping ?? 99);
 
-    // prepare serialized fields
-    const itemsJson = JSON.stringify(products);
-    let addressJson = null;
+    // Robust GST handling:
+    // - Prefer explicit body.gstRate when provided.
+    // - If body.gst is present and <= 1 (e.g. 0.18) treat it as a rate (backwards compat).
+    // - If body.gst is > 1, treat it as a monetary gst amount provided by client (do NOT use as rate).
+    // - Default rate = 0.18
+    const GST_RATE = (typeof body.gstRate === 'number')
+      ? Number(body.gstRate)
+      : (typeof body.gst === 'number' && body.gst <= 1)
+        ? Number(body.gst)
+        : 0.18;
+
+    const gstAmount = parseFloat((subtotal * GST_RATE).toFixed(2));
+
+    // DEBUG: log gst/raw values and types to diagnose mismatches
+    console.log("[order-create][debug] body.gst:", body?.gst, "typeof:", typeof body?.gst);
+    console.log("[order-create][debug] body.gstRate:", body?.gstRate, "typeof:", typeof body?.gstRate);
+    console.log("[order-create][debug] chosen GST_RATE:", GST_RATE, "subtotal:", subtotal, "gstAmount:", gstAmount, "SHIPPING_FEE:", SHIPPING_FEE, "discount:", Number(body.discount ?? 0));
+
+    // If client sent a monetary GST value, log it for debugging but do not use it for calculations.
+    if (clientGstMonetary !== null) {
+      console.log("[order-create] client provided gst monetary amount:", clientGstMonetary, " — server computed gst based on rate:", gstAmount);
+    }
+
+    const total = parseFloat((subtotal + gstAmount + SHIPPING_FEE - (Number(body.discount ?? 0))).toFixed(2));
+
+    // debug log for every request (searchable)
+    console.log("[order-create] computedTotals:", {
+      subtotal: Number(subtotal.toFixed(2)),
+      shipping: Number(SHIPPING_FEE.toFixed(2)),
+      gst: gstAmount,
+      discount: Number(body.discount ?? 0),
+      total,
+      clientTotal,
+      clientGst: (typeof body.gst === 'number' ? Number(body.gst) : null),
+      clientShipping,
+      paymentMethod,
+      userId,
+    });
+
+    // if client provided total, compare within small tolerance (0.5 INR)
+    if (clientTotal !== null) {
+      const diff = Math.abs(clientTotal - total);
+      if (diff > 0.5) {
+        console.warn("[order-create] client total mismatch - rejecting", { clientTotal, serverTotal: total, diff });
+        // Provide extra debug output so you can see what the server expected
+        return NextResponse.json({
+          ok: false,
+          error: "total_mismatch",
+          message: "Order total mismatch (client vs server)",
+          serverTotal: total,
+          clientTotal,
+          debug: {
+            subtotal: Number(subtotal.toFixed(2)),
+            gstRateUsed: GST_RATE,
+            gstAmount,
+            shipping: Number(SHIPPING_FEE.toFixed(2)),
+            discount: Number(body.discount ?? 0),
+            items: normalized
+          }
+        }, { status: 400 });
+      }
+    }
+
+    // Now create DB rows in transaction
+    const orderData = {
+      userId,
+      addressId,
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      shipping: parseFloat(SHIPPING_FEE.toFixed(2)),
+      gst: gstAmount,
+      discount: Number(body.discount ?? 0),
+      total,
+      currency: body.currency ?? "INR",
+      itemsJson: JSON.stringify(normalized),
+      addressJson: null,
+      status: paymentMethod === "COD" ? "ORDER_PLACED" : "PENDING",
+      paymentMethod,
+    };
+
+    // optional: try fetch address and include JSON
     try {
       const addr = await prisma.address.findUnique({ where: { id: addressId } });
-      if (addr) addressJson = JSON.stringify(addr);
-    } catch (e) {
-      addressJson = null;
-    }
+      if (addr) orderData.addressJson = JSON.stringify(addr);
+    } catch (e) {}
 
-    // Transaction: create order -> items -> payment (atomic)
-    const createResult = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({
-        data: {
-          userId,
-          addressId,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          shipping: parseFloat(SHIPPING_FEE.toFixed(2)),
-          gst: gstAmount,
-          discount: Number(discountOverride ?? 0),
-          total: finalTotal,
-          currency: currency ?? "INR",
-          itemsJson,
-          addressJson,
-          status: paymentMethod === "COD" ? "ORDER_PLACED" : "PENDING",
-          paymentMethod,
-        },
-      });
-
-      // OrderItems (composite PK)
-      const itemsToInsert = products.map(p => ({
-        orderId: order.id,
-        productId: p.productId,
-        quantity: p.quantity,
-        price: p.price,
-      }));
-
-      // createMany (composite PK supported)
-      if (itemsToInsert.length) {
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.create({ data: orderData });
+      if (normalized.length) {
+        const itemsToInsert = normalized.map(it => ({
+          orderId: order.id,
+          productId: it.productId,
+          quantity: it.quantity,
+          price: it.price,
+        }));
         await tx.orderItem.createMany({ data: itemsToInsert, skipDuplicates: true });
       }
 
-      // payments row (pending for razorpay)
-      const paymentRow = await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           orderId: order.id,
           method: paymentMethod,
-          amount: finalTotal,
+          amount: total,
           currency: "INR",
           status: paymentMethod === "COD" ? "SUCCESS" : "PENDING",
         },
       });
 
-      return { order, payment: paymentRow };
+      return { order, payment };
     });
 
-    // After transaction: if RAZORPAY, create razor order and update payment. We do this outside transaction
+    // Razorpay flow: create razor order and attach id
     if (paymentMethod === "RAZORPAY") {
       if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-        // Log server-side but return friendly message
         console.error("[order-create] razorpay not configured");
-        return NextResponse.json({ ok: false, error: "payment_unavailable", message: "Payment provider not configured" }, { status: 500 });
+        return NextResponse.json({ ok: false, error: "payment_unavailable" }, { status: 500 });
       }
+      const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+      const razorOrder = await razorpay.orders.create({ amount: Math.round(result.order.total * 100), currency: "INR", receipt: `rcpt_${result.order.id}` });
 
-      const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET,
-      });
+      await prisma.payment.updateMany({ where: { orderId: result.order.id }, data: { razorpayOrderId: razorOrder.id, status: "PENDING" } });
 
-      const razorOrder = await razorpay.orders.create({
-        amount: Math.round(createResult.order.total * 100),
-        currency: "INR",
-        receipt: `rcpt_${createResult.order.id}_${Date.now()}`,
-      });
-
-      // attach razorpayOrderId to payment record
-      await prisma.payment.updateMany({
-        where: { orderId: createResult.order.id },
-        data: { razorpayOrderId: razorOrder.id, status: "PENDING" },
-      });
-
-      // fetch full order minimal safe object to return
       const fullOrder = await prisma.order.findUnique({
-        where: { id: createResult.order.id },
+        where: { id: result.order.id },
         include: { orderItems: { include: { product: true } }, payments: true, address: true, buyer: true },
       });
 
@@ -170,22 +206,21 @@ export async function POST(req) {
         amount: razorOrder.amount,
         currency: razorOrder.currency,
         keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        order: { id: fullOrder.id },
+        order: { id: fullOrder.id }
       });
     }
 
-    // COD: clear cart and return sanitized order
-    await prisma.user.update({ where: { id: createResult.order.userId }, data: { cart: {} } });
+    // COD: clear cart and return
+    await prisma.user.update({ where: { id: result.order.userId }, data: { cart: {} } });
 
-    const returned = await prisma.order.findUnique({
-      where: { id: createResult.order.id },
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: result.order.id },
       include: { orderItems: { include: { product: true } }, payments: true, address: true, buyer: true },
     });
 
-    return NextResponse.json({ ok: true, message: "order_created", order: { id: returned.id } });
+    return NextResponse.json({ ok: true, message: "order_created", order: { id: fullOrder.id } });
   } catch (err) {
-    // log server-side, but do NOT send stack trace to client
     console.error("[order-create] unexpected error:", err);
-    return NextResponse.json({ ok: false, error: "internal_server_error", message: "Something went wrong. Please try again." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "internal" }, { status: 500 });
   }
 }

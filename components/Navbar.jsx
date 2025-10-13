@@ -75,12 +75,12 @@ const Navbar = () => {
           {/* Left: Logo */}
           <Link href="/" className="flex items-center gap-3">
             <Image
-  src="/logo.png"
-  alt="Mooi Professional"
-  width={120}    // set actual pixel width
-  height={40}    // set actual pixel height
-  priority
-/>
+              src="/logo.png"
+              alt="Mooi Professional"
+              width={120} // set actual pixel width
+              height={40} // set actual pixel height
+              priority
+            />
           </Link>
 
           {/* Desktop menu */}
@@ -97,7 +97,11 @@ const Navbar = () => {
                 { href: "/", label: "Home" },
                 { href: "/about", label: "About" },
               ].map((item) => (
-                <Link key={item.href} href={item.href} className="relative group">
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="relative group"
+                >
                   {item.label}
                   <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
                 </Link>
@@ -161,7 +165,10 @@ const Navbar = () => {
             </div>
 
             {/* Cart */}
-            <Link href="/cart" className="relative p-2 rounded-full hover:bg-slate-100">
+            <Link
+              href="/cart"
+              className="relative p-2 rounded-full hover:bg-slate-100"
+            >
               <ShoppingCart size={20} />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-0.5 text-[10px] text-white bg-emerald-600 px-1.5 py-0.5 rounded-full">

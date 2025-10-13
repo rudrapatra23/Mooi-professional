@@ -86,7 +86,7 @@ export default function EditProductPage({ params }) {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.replace("/admin/manage-products");
+      router.replace("/admin/manage-product");
     }
   }
 
@@ -117,7 +117,7 @@ export default function EditProductPage({ params }) {
 
       toast.success("Product updated");
 
-      router.replace("/admin/manage-products");
+      router.replace("/admin/manage-product");
     } catch (err) {
       console.error("update product error:", err);
       toast.error(err?.response?.data?.error || err.message || "Update failed");
