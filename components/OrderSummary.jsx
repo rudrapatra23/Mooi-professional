@@ -39,7 +39,32 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
     return Number(tot.toFixed(2));
   }, [totalPrice, gstAmount]);
 
-  // ----- Razorpay helper (unchanged) -----
+  // Helper: show success toast (mobile-friendly) and redirect to home
+  const handleSuccessRedirect = (orderId) => {
+    // show toast at bottom-center for mobile visibility
+    toast.success('Order confirmed — thank you! 🎉', {
+      position: 'bottom-center',
+      duration: 3500,
+    });
+
+    // refresh cart in background
+    try {
+      dispatch(fetchCart({ getToken }));
+    } catch (e) {
+      // ignore
+    }
+
+    // short delay so user sees toast, then redirect to home
+    setTimeout(() => {
+      try {
+        router.push('/');
+      } catch {
+        window.location.href = '/';
+      }
+    }, 800);
+  };
+
+  // ----- Razorpay helper (unchanged except success behavior) -----
   const openRazorpayCheckout = (razorpayData, orderId) => {
     if (!window?.Razorpay) {
       toast.error('Razorpay SDK not loaded. Please try again.');
@@ -65,14 +90,15 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
           }, { headers: { Authorization: `Bearer ${token}` }});
 
           if (verifyRes.data?.ok) {
-            toast.success('Payment successful');
-            dispatch(fetchCart({ getToken }));
-            router.push(`/order-success?orderId=${encodeURIComponent(verifyRes.data.order.id)}`);
+            toast.success('Payment successful', { position: 'bottom-center' });
+            // refresh cart and redirect to home (instead of /order-success)
+            try { dispatch(fetchCart({ getToken })); } catch {}
+            handleSuccessRedirect(verifyRes.data.order?.id ?? orderId);
           } else {
-            toast.error(verifyRes.data?.error || 'Payment verification failed');
+            toast.error(verifyRes.data?.error || 'Payment verification failed', { position: 'bottom-center' });
           }
         } catch (err) {
-          toast.error(err?.response?.data?.error || err.message || 'Payment verification failed');
+          toast.error(err?.response?.data?.error || err.message || 'Payment verification failed', { position: 'bottom-center' });
         } finally {
           setLoading(false);
         }
@@ -92,8 +118,14 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     try {
-      if (!user) return toast('Please login to place an order');
-      if (!selectedAddress) return toast('Please select an address');
+      if (!user) {
+        toast('Please login to place an order', { position: 'bottom-center' });
+        return;
+      }
+      if (!selectedAddress) {
+        toast('Please select an address', { position: 'bottom-center' });
+        return;
+      }
 
       setLoading(true);
       const token = await getToken();
@@ -128,7 +160,7 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
       if (paymentMethod === 'RAZORPAY') {
         const { razorpayOrderId, amount, currency, keyId, order: createdOrder } = data;
         if (!window.Razorpay) {
-          toast.error('Razorpay SDK missing. Add <script src="https://checkout.razorpay.com/v1/checkout.js"></script> to your layout.');
+          toast.error('Razorpay SDK missing. Add <script src="https://checkout.razorpay.com/v1/checkout.js"></script> to your layout.', { position: 'bottom-center' });
           return;
         }
         const options = {
@@ -148,14 +180,15 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
               }, { headers: { Authorization: `Bearer ${token2}` } });
 
               if (verify.data?.ok) {
-                toast.success('Payment successful');
-                dispatch(fetchCart({ getToken }));
-                router.push('/order-success?orderId=' + encodeURIComponent(createdOrder?.id ?? ''));
+                toast.success('Payment successful', { position: 'bottom-center' });
+                try { dispatch(fetchCart({ getToken })); } catch {}
+                // redirect to home instead of order-success
+                handleSuccessRedirect(verify.data.order?.id ?? createdOrder?.id ?? '');
               } else {
-                toast.error(verify.data?.error || 'Payment verification failed');
+                toast.error(verify.data?.error || 'Payment verification failed', { position: 'bottom-center' });
               }
             } catch (err) {
-              toast.error(err?.response?.data?.error || err.message || 'Verification failed');
+              toast.error(err?.response?.data?.error || err.message || 'Verification failed', { position: 'bottom-center' });
             }
           },
           prefill: {
@@ -172,17 +205,17 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
 
       // COD flow — server creates order and clears cart
       if (data?.ok) {
-        toast.success(data.message || 'Order placed successfully');
+        toast.success(data.message || 'Order placed successfully', { position: 'bottom-center' });
         dispatch(fetchCart({ getToken }));
         const orderId = data.order?.id ?? (Array.isArray(data.orders) ? data.orders[0]?.id : undefined) ?? '';
-        if (orderId) router.push('/order-success?orderId=' + encodeURIComponent(orderId));
-        else router.push('/orders');
+        // redirect to home with success toast (instead of order-success)
+        handleSuccessRedirect(orderId);
       } else {
         throw new Error(data?.error || 'Order creation failed');
       }
     } catch (error) {
       console.error('handlePlaceOrder error:', error);
-      toast.error(error?.response?.data?.error || error.message || 'Failed to place order');
+      toast.error(error?.response?.data?.error || error.message || 'Failed to place order', { position: 'bottom-center' });
     } finally {
       setLoading(false);
     }
@@ -196,7 +229,7 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
       {/* Payment Method */}
       <div className="flex gap-2 items-center">
         <input type="radio" id="COD" onChange={() => setPaymentMethod('COD')} checked={paymentMethod === 'COD'} className="accent-gray-500" />
-        <label htmlFor="COD" className="cursor-pointer">COD</label>
+        <label htmlFor="COD" className="cursor-pointer">Cash On Delivary</label>
       </div>
       <div className="flex gap-2 items-center mt-1">
         <input type="radio" id="RAZORPAY" name="payment" onChange={() => setPaymentMethod('RAZORPAY')} checked={paymentMethod === 'RAZORPAY'} className="accent-gray-500" />

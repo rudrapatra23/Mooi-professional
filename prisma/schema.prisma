@@ -66,18 +66,23 @@ model Order {
   razorpayId    String?       @unique
   userId        String?
   addressId     String?
-  subtotal      Float         @default(0)     // default added for safe migration
-  shipping      Float         @default(0)     // default added for safe migration
-  gst           Float         @default(0)     // default added for safe migration
+  subtotal      Float         @default(0)
+  shipping      Float         @default(0)
+  gst           Float         @default(0)
   discount      Float         @default(0)
   total         Float
   currency      String        @default("INR")
-  itemsJson     String        @default("[]")  // default added for safe migration
+  itemsJson     String        @default("[]")
   addressJson   String?
   status        String        @default("created")
-  paymentMethod PaymentMethod @default(COD)   // new enum field
+  paymentMethod PaymentMethod @default(COD)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  // soft-delete fields (new)
+  isDeleted     Boolean       @default(false)
+  deletedAt     DateTime?
+  deletedBy     String?
 
   // Relations (opposites for other models)
   buyer      User?       @relation("BuyerRelation", fields: [userId], references: [id])
@@ -85,6 +90,7 @@ model Order {
   orderItems OrderItem[]
   payments   Payment[]
 }
+
 
 model Payment {
   id                String   @id @default(cuid())

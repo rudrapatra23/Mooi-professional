@@ -25,7 +25,7 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      const res = await axios.get('/api/orders?admin=true', {
+      const res = await axios.get('/api/admin/orders?admin=true', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -363,7 +363,7 @@ function escapeHtml(str) {
                             const newStatus = e.target.value;
                             try {
                               const token = await getToken();
-                              const res = await axios.patch('/api/orders', { orderId: order.id, status: newStatus }, {
+                              const res = await axios.patch('/api/admin/orders', { orderId: order.id, status: newStatus }, {
                                 headers: { Authorization: `Bearer ${token}` }
                               });
                               const updatedOrder = res.data?.order;
