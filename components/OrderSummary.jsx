@@ -41,7 +41,6 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
 
   // Helper: show success toast (mobile-friendly) and redirect to home
   const handleSuccessRedirect = (orderId) => {
-    // show toast at bottom-center for mobile visibility
     toast.success('Order confirmed — thank you! 🎉', {
       position: 'bottom-center',
       duration: 3500,
@@ -62,56 +61,6 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         window.location.href = '/';
       }
     }, 800);
-  };
-
-  // ----- Razorpay helper (unchanged except success behavior) -----
-  const openRazorpayCheckout = (razorpayData, orderId) => {
-    if (!window?.Razorpay) {
-      toast.error('Razorpay SDK not loaded. Please try again.');
-      return;
-    }
-
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: razorpayData.amount, // in paisa
-      currency: razorpayData.currency || 'INR',
-      name: 'Mooi Professional',
-      description: 'Order Payment',
-      order_id: razorpayData.razorpayOrderId,
-      handler: async (response) => {
-        try {
-          setLoading(true);
-          const token = await getToken();
-          const verifyRes = await axios.post('/api/order/confirm', {
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_signature: response.razorpay_signature,
-            orderId,
-          }, { headers: { Authorization: `Bearer ${token}` }});
-
-          if (verifyRes.data?.ok) {
-            toast.success('Payment successful', { position: 'bottom-center' });
-            // refresh cart and redirect to home (instead of /order-success)
-            try { dispatch(fetchCart({ getToken })); } catch {}
-            handleSuccessRedirect(verifyRes.data.order?.id ?? orderId);
-          } else {
-            toast.error(verifyRes.data?.error || 'Payment verification failed', { position: 'bottom-center' });
-          }
-        } catch (err) {
-          toast.error(err?.response?.data?.error || err.message || 'Payment verification failed', { position: 'bottom-center' });
-        } finally {
-          setLoading(false);
-        }
-      },
-      prefill: {
-        name: user?.fullName || '',
-        email: user?.emailAddresses?.[0]?.emailAddress || user?.primaryEmailAddress || '',
-      },
-      theme: { color: '#111827' },
-    };
-
-    const rzp = new window.Razorpay(options);
-    rzp.open();
   };
 
   // Place order (no coupon/discount fields)
@@ -143,7 +92,6 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         gstAmount: Number(gstAmount.toFixed(2)),   // explicit monetary GST
         shipping: Number(SHIPPING_FEE.toFixed(2)),
         total: Number(finalTotal.toFixed(2)),
-        // no discount / coupon fields
       };
 
       console.log('ORDER DATA SENT ===>', JSON.stringify(orderData, null, 2));
@@ -157,38 +105,54 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
 
       if (!data) throw new Error('No response from server');
 
+      // ===== Razorpay flow (server already returned razorpayOrderId etc) =====
       if (paymentMethod === 'RAZORPAY') {
         const { razorpayOrderId, amount, currency, keyId, order: createdOrder } = data;
-        if (!window.Razorpay) {
-          toast.error('Razorpay SDK missing. Add <script src="https://checkout.razorpay.com/v1/checkout.js"></script> to your layout.', { position: 'bottom-center' });
+
+        if (!razorpayOrderId) {
+          // fallback: server didn't return razorpay data
+          toast.error(data?.error || 'Payment initialization failed', { position: 'bottom-center' });
           return;
         }
+
+        if (!window.Razorpay) {
+          toast.error(
+            'Razorpay SDK missing. Add <script src="https://checkout.razorpay.com/v1/checkout.js"></script> to your layout.',
+            { position: 'bottom-center' }
+          );
+          return;
+        }
+
         const options = {
           key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount,
+          amount,                // in paisa
           currency,
           order_id: razorpayOrderId,
-          name: 'Your Shop',
+          name: 'Mooi Professional',
           description: 'Order Payment',
           handler: async function (resp) {
             try {
+              setLoading(true);
               const token2 = await getToken();
               const verify = await axios.post('/api/order/confirm', {
                 razorpay_payment_id: resp.razorpay_payment_id,
                 razorpay_order_id: resp.razorpay_order_id,
                 razorpay_signature: resp.razorpay_signature,
+                orderId: createdOrder?.id ?? (data.order?.id ?? undefined),
               }, { headers: { Authorization: `Bearer ${token2}` } });
 
               if (verify.data?.ok) {
                 toast.success('Payment successful', { position: 'bottom-center' });
                 try { dispatch(fetchCart({ getToken })); } catch {}
-                // redirect to home instead of order-success
                 handleSuccessRedirect(verify.data.order?.id ?? createdOrder?.id ?? '');
               } else {
                 toast.error(verify.data?.error || 'Payment verification failed', { position: 'bottom-center' });
               }
             } catch (err) {
+              console.error('Razorpay verify err', err);
               toast.error(err?.response?.data?.error || err.message || 'Verification failed', { position: 'bottom-center' });
+            } finally {
+              setLoading(false);
             }
           },
           prefill: {
@@ -203,12 +167,11 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         return;
       }
 
-      // COD flow — server creates order and clears cart
+      // ===== COD flow — server creates order and clears cart =====
       if (data?.ok) {
         toast.success(data.message || 'Order placed successfully', { position: 'bottom-center' });
-        dispatch(fetchCart({ getToken }));
+        try { dispatch(fetchCart({ getToken })); } catch {}
         const orderId = data.order?.id ?? (Array.isArray(data.orders) ? data.orders[0]?.id : undefined) ?? '';
-        // redirect to home with success toast (instead of order-success)
         handleSuccessRedirect(orderId);
       } else {
         throw new Error(data?.error || 'Order creation failed');
@@ -229,7 +192,7 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
       {/* Payment Method */}
       <div className="flex gap-2 items-center">
         <input type="radio" id="COD" onChange={() => setPaymentMethod('COD')} checked={paymentMethod === 'COD'} className="accent-gray-500" />
-        <label htmlFor="COD" className="cursor-pointer">Cash On Delivary</label>
+        <label htmlFor="COD" className="cursor-pointer">Cash On Delivery</label>
       </div>
       <div className="flex gap-2 items-center mt-1">
         <input type="radio" id="RAZORPAY" name="payment" onChange={() => setPaymentMethod('RAZORPAY')} checked={paymentMethod === 'RAZORPAY'} className="accent-gray-500" />
