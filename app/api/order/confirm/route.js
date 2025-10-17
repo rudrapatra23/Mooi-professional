@@ -7,12 +7,14 @@ import crypto from "crypto";
 export async function POST(req) {
   try {
     const { userId } = getAuth(req);
-    if (!userId) return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
+    if (!userId)
+      return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
 
     const body = await req.json().catch(() => null);
-    if (!body) return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
+    if (!body)
+      return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
 
-    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderId } = body;
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return NextResponse.json({ ok: false, error: "missing_payment_fields" }, { status: 400 });
     }
@@ -32,14 +34,15 @@ export async function POST(req) {
       return NextResponse.json({ ok: false, error: "invalid_signature" }, { status: 400 });
     }
 
-    // atomic update: find payment by razorpayOrderId and update payment + order
+    // ✅ atomic transaction: confirm payment + order + decrement stock
     const txResult = await prisma.$transaction(async (tx) => {
-      // update payment where razorpayOrderId matches
-      const payment = await tx.payment.findFirst({ where: { razorpayOrderId: razorpay_order_id } });
-      if (!payment) {
-        throw new Error("payment_not_found");
-      }
+      // --- find payment ---
+      const payment = await tx.payment.findFirst({
+        where: { razorpayOrderId: razorpay_order_id },
+      });
+      if (!payment) throw new Error("payment_not_found");
 
+      // --- update payment ---
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -50,26 +53,58 @@ export async function POST(req) {
         },
       });
 
-      // update order: set status & associate razorpayId if field exists
-      await tx.order.update({
+      // --- update order status ---
+      const order = await tx.order.update({
         where: { id: payment.orderId },
         data: {
           status: "PROCESSING",
           razorpayId: razorpay_order_id,
         },
+        include: { orderItems: true },
       });
 
-      return { ok: true, orderId: payment.orderId, paymentId: payment.id };
+      // --- decrement stock for each product in order ---
+      for (const item of order.orderItems) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+        if (!product) continue;
+
+        const newStock = Math.max((product.stock || 0) - item.quantity, 0);
+
+        await tx.product.update({
+          where: { id: product.id },
+          data: {
+            stock: newStock,
+            inStock: newStock > 0,
+          },
+        });
+      }
+
+      return { ok: true, orderId: order.id };
     });
 
-    return NextResponse.json({ ok: true, message: "payment_verified", order: { id: txResult.orderId } });
+    // ✅ success
+    return NextResponse.json({
+      ok: true,
+      message: "payment_verified_and_stock_updated",
+      order: { id: txResult.orderId },
+    });
   } catch (err) {
     console.error("[order-confirm] error:", err);
-    // sanitize message
-    const isKnown = typeof err.message === "string" && (err.message === "payment_not_found");
-    if (isKnown) {
+    const isKnown =
+      typeof err.message === "string" && err.message === "payment_not_found";
+    if (isKnown)
       return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
-    }
-    return NextResponse.json({ ok: false, error: "internal_server_error", message: "Could not verify payment. Try again or contact support." }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "internal_server_error",
+        message:
+          "Could not verify payment or update stock. Try again or contact support.",
+      },
+      { status: 500 }
+    );
   }
 }

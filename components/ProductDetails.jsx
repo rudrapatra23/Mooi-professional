@@ -26,15 +26,13 @@ const ProductDetails = ({ product }) => {
     Array.isArray(product.images) && product.images.length ? product.images[0] : ""
   );
 
-  // Ratings state
   const [ratingsArray, setRatingsArray] = useState([]);
   const [averageRating, setAverageRating] = useState(0);
   const [loadingRatings, setLoadingRatings] = useState(false);
 
-  // Fetch ratings from backend (singular route: /api/rating/:productId)
+  // 🔄 Fetch latest rating info
   useEffect(() => {
     let cancelled = false;
-
     async function fetchRatings() {
       if (!product?.id) return;
       setLoadingRatings(true);
@@ -52,12 +50,11 @@ const ProductDetails = ({ product }) => {
         if (cancelled) return;
         setRatingsArray(arr);
 
-        if (arr.length > 0) {
-          const avg = arr.reduce((acc, r) => acc + (r.rating || 0), 0) / arr.length;
-          setAverageRating(avg);
-        } else {
-          setAverageRating(0);
-        }
+        const avg =
+          arr.length > 0
+            ? arr.reduce((acc, r) => acc + (r.rating || 0), 0) / arr.length
+            : 0;
+        setAverageRating(avg);
       } catch (err) {
         console.error("Error fetching ratings:", err);
         if (!cancelled) {
@@ -69,29 +66,31 @@ const ProductDetails = ({ product }) => {
       }
     }
 
-    if (product?.id) fetchRatings();
-
+    fetchRatings();
     return () => {
       cancelled = true;
     };
   }, [product?.id]);
 
+  // 🛒 Add to Cart handler
   const addToCartHandler = () => {
     if (!product.inStock) return;
     dispatch(addToCart({ productId }));
   };
 
+  // 💰 Currency formatting
   const fmt = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
   });
 
+  // 🧩 Stock Label Helper
   const getStockLabel = (p) => {
-    if (!p?.inStock) return { text: "Currently Out of Stock", tone: "red" };
+    if (!p?.inStock) return { text: "Out of Stock", tone: "red" };
     if (typeof p?.stock === "number") {
-      if (p.stock === 0) return { text: "Currently Out of Stock", tone: "red" };
-      if (p.stock < 5) return { text: `Hurry, only ${p.stock} left!`, tone: "orange" };
+      if (p.stock <= 0) return { text: "Out of Stock", tone: "red" };
+      if (p.stock < 5) return { text: `Only ${p.stock} left`, tone: "orange" };
     }
     return { text: "In Stock", tone: "green" };
   };
@@ -109,7 +108,7 @@ const ProductDetails = ({ product }) => {
               <button
                 key={index}
                 onClick={() => setMainImage(image)}
-                className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer hover:ring-2 hover:ring-yellow-400 transition-all"
+                className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer hover:ring-2 hover:ring-rose-400 transition-all"
                 type="button"
               >
                 <img
@@ -143,7 +142,7 @@ const ProductDetails = ({ product }) => {
       <div className="flex-1">
         <h1 className="text-3xl font-semibold text-slate-800">{product.name}</h1>
 
-        {/* ---------- RATINGS SECTION ---------- */}
+        {/* ---------- RATINGS ---------- */}
         <div className="flex items-center mt-3">
           {Array(5)
             .fill("")
@@ -165,7 +164,7 @@ const ProductDetails = ({ product }) => {
           </span>
         </div>
 
-        {/* ---------- PRICE + STOCK + ADD TO CART ---------- */}
+        {/* ---------- PRICE ---------- */}
         <div className="flex items-start my-6 gap-3 text-2xl font-semibold text-slate-800">
           <p>{fmt.format(product.price)}</p>
           {typeof product.mrp === "number" && product.mrp > product.price && (
@@ -175,6 +174,7 @@ const ProductDetails = ({ product }) => {
           )}
         </div>
 
+        {/* ---------- STOCK LABEL ---------- */}
         <div className="mt-2">
           <p
             className={`font-medium ${
@@ -189,6 +189,7 @@ const ProductDetails = ({ product }) => {
           </p>
         </div>
 
+        {/* ---------- DISCOUNT ---------- */}
         {typeof product.mrp === "number" && product.mrp > product.price && (
           <div className="flex items-center gap-2 text-slate-500 mt-3">
             <TagIcon size={14} />
@@ -200,6 +201,7 @@ const ProductDetails = ({ product }) => {
           </div>
         )}
 
+        {/* ---------- ADD TO CART ---------- */}
         <div className="flex items-end gap-5 mt-10">
           {cart[productId] && (
             <div className="flex flex-col gap-3">
@@ -230,7 +232,7 @@ const ProductDetails = ({ product }) => {
 
         <hr className="border-gray-300 my-5" />
 
-        {/* ---------- DELIVERY + PAYMENT INFO ---------- */}
+        {/* ---------- DELIVERY INFO ---------- */}
         <div className="flex flex-col gap-4 text-slate-500">
           <DeliveryByText />
           <p className="flex gap-3 items-center">
@@ -242,7 +244,7 @@ const ProductDetails = ({ product }) => {
   );
 };
 
-/* ---------- Dynamic Delivery Text ---------- */
+/* ---------- DELIVERY ETA ---------- */
 function DeliveryByText() {
   const now = new Date();
   const eta = new Date(now);
