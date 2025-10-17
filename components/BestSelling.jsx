@@ -39,24 +39,45 @@ export default function BestSelling({ limit = 8 }) {
         href="/shop"
       />
 
-      <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 xl:gap-12">
-        {loading ? (
-          // simple skeletons
-          Array.from({ length: limit }).map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-slate-200 aspect-square rounded mb-3" />
-              <div className="bg-slate-200 h-4 rounded mb-2" />
-              <div className="bg-slate-200 h-3 rounded w-2/3" />
-            </div>
-          ))
-        ) : products.length > 0 ? (
-          products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))
-        ) : (
-          <p className="text-slate-500 text-sm">No best sellers yet — check latest products.</p>
-        )}
+     <div
+  className="
+    mt-10
+    flex
+    gap-6
+    xl:gap-10
+    overflow-x-auto
+    scrollbar-thin
+    scrollbar-thumb-emerald-500
+    scrollbar-track-gray-200
+    pb-4
+  "
+>
+  {loading ? (
+    // skeleton cards in horizontal layout
+    Array.from({ length: limit }).map((_, i) => (
+      <div
+        key={i}
+        className="flex-shrink-0 w-[220px] sm:w-[240px] md:w-[200px] animate-pulse"
+      >
+        <div className="bg-slate-200 aspect-square rounded mb-3" />
+        <div className="bg-slate-200 h-4 rounded mb-2" />
+        <div className="bg-slate-200 h-3 rounded w-2/3" />
       </div>
+    ))
+  ) : products.length > 0 ? (
+    products.map((product, index) => (
+      <div
+        key={product?.id ?? index}
+        className="flex-shrink-0 w-[220px] sm:w-[240px] md:w-[200px]"
+      >
+        <ProductCard product={product} />
+      </div>
+    ))
+  ) : (
+    <p className="text-slate-500 text-sm">No best sellers yet — check latest products.</p>
+  )}
+</div>
+
     </div>
   );
 }

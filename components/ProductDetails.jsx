@@ -1,49 +1,92 @@
 "use client";
 
-import { StarIcon, TagIcon, EarthIcon, CreditCardIcon } from "lucide-react";
+import {
+  StarIcon,
+  TagIcon,
+  EarthIcon,
+  CreditCardIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Counter from "./Counter";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "@/lib/features/cart/cartSlice";
 
 const ProductDetails = ({ product }) => {
-  // defensive: if product missing, render nothing (parent already guards, but extra safety)
   if (!product) return null;
 
   const productId = product.id;
   const currencySymbol = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
-  // safe cart selector: default to empty object if slice missing
   const cart = useSelector((state) => state.cart?.cartItems ?? {});
   const dispatch = useDispatch();
   const router = useRouter();
 
-  // safe mainImage initialiser
   const [mainImage, setMainImage] = useState(
     Array.isArray(product.images) && product.images.length ? product.images[0] : ""
   );
+
+  // Ratings state
+  const [ratingsArray, setRatingsArray] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [loadingRatings, setLoadingRatings] = useState(false);
+
+  // Fetch ratings from backend (singular route: /api/rating/:productId)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchRatings() {
+      if (!product?.id) return;
+      setLoadingRatings(true);
+      try {
+        const res = await fetch(`/api/rating/${product.id}`);
+        if (!res.ok) return;
+        const body = await res.json();
+        const arr = Array.isArray(body)
+          ? body
+          : Array.isArray(body?.rows)
+          ? body.rows
+          : Array.isArray(body?.ratings)
+          ? body.ratings
+          : [];
+        if (cancelled) return;
+        setRatingsArray(arr);
+
+        if (arr.length > 0) {
+          const avg = arr.reduce((acc, r) => acc + (r.rating || 0), 0) / arr.length;
+          setAverageRating(avg);
+        } else {
+          setAverageRating(0);
+        }
+      } catch (err) {
+        console.error("Error fetching ratings:", err);
+        if (!cancelled) {
+          setRatingsArray([]);
+          setAverageRating(0);
+        }
+      } finally {
+        if (!cancelled) setLoadingRatings(false);
+      }
+    }
+
+    if (product?.id) fetchRatings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id]);
 
   const addToCartHandler = () => {
     if (!product.inStock) return;
     dispatch(addToCart({ productId }));
   };
 
-  // safe average rating calc
-  const averageRating =
-    Array.isArray(product.rating) && product.rating.length > 0
-      ? product.rating.reduce((acc, item) => acc + (item.rating || 0), 0) /
-        product.rating.length
-      : 0;
-
-  // price formatter
   const fmt = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
   });
 
-  // stock label
   const getStockLabel = (p) => {
     if (!p?.inStock) return { text: "Currently Out of Stock", tone: "red" };
     if (typeof p?.stock === "number") {
@@ -54,18 +97,19 @@ const ProductDetails = ({ product }) => {
   };
   const stockLabel = getStockLabel(product);
 
+  const roundedRating = Math.round(averageRating);
+
   return (
     <div className="flex max-lg:flex-col gap-12">
-      {/* Image section */}
+      {/* ---------- IMAGE SECTION ---------- */}
       <div className="flex max-sm:flex-col-reverse gap-3">
-        {/* Thumbnails */}
         <div className="flex sm:flex-col gap-3">
           {Array.isArray(product.images) && product.images.length ? (
             product.images.map((image, index) => (
               <button
                 key={index}
-                onClick={() => setMainImage(product.images[index])}
-                className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer"
+                onClick={() => setMainImage(image)}
+                className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer hover:ring-2 hover:ring-yellow-400 transition-all"
                 type="button"
               >
                 <img
@@ -76,11 +120,10 @@ const ProductDetails = ({ product }) => {
               </button>
             ))
           ) : (
-            <div className="text-slate-400">No images</div>
+            <div className="text-slate-400 text-sm">No images</div>
           )}
         </div>
 
-        {/* Main Image */}
         <div className="flex justify-center items-center">
           <div className="w-[400px] h-[400px] bg-white rounded-2xl overflow-hidden flex items-center justify-center shadow-md">
             {mainImage ? (
@@ -90,36 +133,39 @@ const ProductDetails = ({ product }) => {
                 className="max-w-full max-h-full object-contain block"
               />
             ) : (
-              <div className="text-slate-400">No image available</div>
+              <div className="text-slate-400 text-sm">No image available</div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Product info */}
+      {/* ---------- PRODUCT INFO SECTION ---------- */}
       <div className="flex-1">
-        <h1 className="text-3xl font-semibold text-slate-800">
-          {product.name}
-        </h1>
+        <h1 className="text-3xl font-semibold text-slate-800">{product.name}</h1>
 
-        {/* Ratings */}
-        <div className="flex items-center mt-2">
+        {/* ---------- RATINGS SECTION ---------- */}
+        <div className="flex items-center mt-3">
           {Array(5)
             .fill("")
-            .map((_, index) => (
-              <StarIcon
-                key={index}
-                size={14}
-                className="text-transparent mt-0.5"
-                fill={averageRating >= index + 1 ? "#00C950" : "#D1D5DB"}
-              />
-            ))}
-          <p className="text-sm ml-3 text-slate-500">
-            {Array.isArray(product.rating) ? product.rating.length : 0} Reviews
-          </p>
+            .map((_, i) => {
+              const filled = roundedRating >= i + 1;
+              return (
+                <StarIcon
+                  key={i}
+                  size={18}
+                  fill={filled ? "#FACC15" : "none"}
+                  stroke={filled ? "#FACC15" : "#9CA3AF"}
+                  className="mr-1"
+                />
+              );
+            })}
+          <span className="ml-3 text-sm text-slate-600">
+            {averageRating.toFixed(1)} / 5 ({ratingsArray.length}{" "}
+            {ratingsArray.length === 1 ? "Review" : "Reviews"})
+          </span>
         </div>
 
-        {/* Prices */}
+        {/* ---------- PRICE + STOCK + ADD TO CART ---------- */}
         <div className="flex items-start my-6 gap-3 text-2xl font-semibold text-slate-800">
           <p>{fmt.format(product.price)}</p>
           {typeof product.mrp === "number" && product.mrp > product.price && (
@@ -129,7 +175,6 @@ const ProductDetails = ({ product }) => {
           )}
         </div>
 
-        {/* Stock info */}
         <div className="mt-2">
           <p
             className={`font-medium ${
@@ -144,19 +189,17 @@ const ProductDetails = ({ product }) => {
           </p>
         </div>
 
-        {/* Discount line */}
         {typeof product.mrp === "number" && product.mrp > product.price && (
           <div className="flex items-center gap-2 text-slate-500 mt-3">
             <TagIcon size={14} />
             <p>
               Save{" "}
-              {(((product.mrp - product.price) / product.mrp) * 100).toFixed(0)}
-              % right now
+              {(((product.mrp - product.price) / product.mrp) * 100).toFixed(0)}%
+              right now
             </p>
           </div>
         )}
 
-        {/* Cart buttons */}
         <div className="flex items-end gap-5 mt-10">
           {cart[productId] && (
             <div className="flex flex-col gap-3">
@@ -187,13 +230,10 @@ const ProductDetails = ({ product }) => {
 
         <hr className="border-gray-300 my-5" />
 
-        {/* Info lines */}
+        {/* ---------- DELIVERY + PAYMENT INFO ---------- */}
         <div className="flex flex-col gap-4 text-slate-500">
-          <p className="flex gap-3">
-            <EarthIcon className="text-slate-400" /> Free shipping on orders above
-            ₹500
-          </p>
-          <p className="flex gap-3">
+          <DeliveryByText />
+          <p className="flex gap-3 items-center">
             <CreditCardIcon className="text-slate-400" /> 100% Secured Payment
           </p>
         </div>
@@ -201,5 +241,28 @@ const ProductDetails = ({ product }) => {
     </div>
   );
 };
+
+/* ---------- Dynamic Delivery Text ---------- */
+function DeliveryByText() {
+  const now = new Date();
+  const eta = new Date(now);
+  eta.setDate(now.getDate() + 7);
+
+  const formatted = eta.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  return (
+    <p className="flex gap-3 items-center text-slate-600">
+      <EarthIcon className="text-slate-400" />
+      <span>
+        Delivery within 7 days —{" "}
+        <span className="font-medium text-slate-800">by {formatted}</span>
+      </span>
+    </p>
+  );
+}
 
 export default ProductDetails;

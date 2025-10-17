@@ -66,7 +66,7 @@ export default function LatestProducts() {
           latest.map((product, index) => (
             <div
               key={product?.id ?? index}
-              className="flex-shrink-0 w-[220px] sm:w-[240px] md:w-[260px]"
+              className="flex-shrink-0 w-[220px] sm:w-[240px] md:w-[200px]"
             >
               <ProductCard product={product} />
             </div>

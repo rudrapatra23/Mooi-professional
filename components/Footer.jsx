@@ -16,8 +16,10 @@ const Footer = () => {
             title: "WEBSITE?",
             links: [
                 { text: "Home", path: '/', icon: null },
-                { text: "Privacy Policy", path: '/', icon: null },
+                { text: "Privacy Policy", path: '/privacy', icon: null },
                 { text: "Know about us", path: '/about', icon: null },
+                { text: "Refund & Return", path: '/refund-return', icon: null },
+                { text: "Terms & Conditions", path: '/terms-and-condition', icon: null }
             ]
         },
         {

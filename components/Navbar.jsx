@@ -13,11 +13,10 @@ import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useUser, useClerk, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
-import logo from "../assets/logo.png";
 
 const Navbar = () => {
   const { user } = useUser();
-  const { openSignIn } = useClerk();
+  const { openSignIn, signOut } = useClerk();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -77,8 +76,8 @@ const Navbar = () => {
             <Image
               src="/logo.png"
               alt="Mooi Professional"
-              width={120} // set actual pixel width
-              height={40} // set actual pixel height
+              width={120}
+              height={40}
               priority
             />
           </Link>
@@ -86,26 +85,19 @@ const Navbar = () => {
           {/* Desktop menu */}
           <div className="hidden sm:flex items-center gap-6 md:gap-8">
             <nav className="flex items-center gap-6 text-slate-700">
-              {/* Products Link */}
               <Link href="/shop" prefetch className="relative group">
                 Products
                 <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
               </Link>
 
-              {/* Static Links */}
-              {[
-                { href: "/", label: "Home" },
-                { href: "/about", label: "About" },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="relative group"
-                >
-                  {item.label}
-                  <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
-                </Link>
-              ))}
+              {[{ href: "/", label: "Home" }, { href: "/about", label: "About" }].map(
+                (item) => (
+                  <Link key={item.href} href={item.href} className="relative group">
+                    {item.label}
+                    <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
+                  </Link>
+                )
+              )}
             </nav>
 
             {/* Desktop Search */}
@@ -165,10 +157,7 @@ const Navbar = () => {
             </div>
 
             {/* Cart */}
-            <Link
-              href="/cart"
-              className="relative p-2 rounded-full hover:bg-slate-100"
-            >
+            <Link href="/cart" className="relative p-2 rounded-full hover:bg-slate-100">
               <ShoppingCart size={20} />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-0.5 text-[10px] text-white bg-emerald-600 px-1.5 py-0.5 rounded-full">
@@ -177,7 +166,7 @@ const Navbar = () => {
               )}
             </Link>
 
-            {/* Login / User */}
+            {/* Login / User (desktop) */}
             <div className="hidden sm:flex items-center">
               {!user ? (
                 <button
@@ -226,17 +215,18 @@ const Navbar = () => {
                 />
               )}
 
-              {/* Mobile Menu Panel */}
+              {/* Mobile Menu Panel (NOW SOLID WHITE AND VISIBLE) */}
               {mobileMenuOpen && (
                 <div
-                  className="fixed right-3 top-16 bg-white border shadow-lg rounded-xl w-[88vw] max-w-[360px] z-[60] p-2 flex flex-col text-sm"
+                  className="fixed right-3 top-16 w-[88vw] max-w-[360px] z-[60] p-3 flex flex-col text-sm rounded-xl
+                             text-gray-900 bg-white ring-2 ring-gray-300 shadow-xl overflow-visible"
                   role="dialog"
                   aria-modal="true"
                 >
                   {/* Products (mobile) */}
                   <Link
                     href="/shop"
-                    className="p-2 hover:bg-slate-100 rounded"
+                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Products
@@ -244,24 +234,25 @@ const Navbar = () => {
 
                   <Link
                     href="/"
-                    className="p-2 hover:bg-slate-100 rounded"
+                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Home
                   </Link>
+
                   <Link
                     href="/about"
-                    className="p-2 hover:bg-slate-100 rounded"
+                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     About
                   </Link>
 
-                  <div className="border-t my-1" />
+                  <div className="border-t border-gray-200 my-2" />
 
                   <Link
                     href="/cart"
-                    className="p-2 hover:bg-slate-100 rounded flex items-center gap-2"
+                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <ShoppingCart size={16} /> Cart
@@ -270,17 +261,42 @@ const Navbar = () => {
                     </span>
                   </Link>
 
+                  {/* Auth / Orders / Sign out */}
                   {user ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        router.push("/orders");
-                      }}
-                      className="p-2 hover:bg-slate-100 rounded flex items-center gap-2"
-                    >
-                      <PackageIcon size={16} /> My Orders
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          router.push("/orders");
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
+                      >
+                        <PackageIcon size={16} /> My Orders
+                      </button>
+
+                      {/* Solid Red Sign Out Button: bg-red-600 with hover:bg-red-700 */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setMobileMenuOpen(false);
+                          try {
+                            await signOut(); // Clerk: sign the user out
+                          } catch (err) {
+                            console.error("Sign out failed", err);
+                          }
+                          try {
+                            router.push("/");
+                          } catch {}
+                        }}
+                        className="mt-3 px-4 py-2 rounded-lg flex items-center justify-center gap-2
+             text-red-600 hover:text-red-700 font-medium
+             bg-transparent border border-red-600 hover:border-red-700
+             transition-all duration-200"
+                      >
+                        Sign Out
+                      </button>
+                    </>
                   ) : (
                     <button
                       type="button"
@@ -288,7 +304,7 @@ const Navbar = () => {
                         setMobileMenuOpen(false);
                         handleLogin();
                       }}
-                      className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+                      className="mt-2 px-4 py-2 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 text-sm shadow-md"
                     >
                       Login
                     </button>

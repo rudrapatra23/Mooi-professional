@@ -5,13 +5,9 @@ import slideshow2 from '@/assets/slideshow2.png'
 import Link from 'next/link'
 
 const Hero = () => {
-
   return (
-    // no margin or padding on top; sits right under navbar
     <section className="relative w-full overflow-hidden">
-      {/* Aspect-ratio wrapper (16:9 on mobile; a bit wider on larger screens) */}
       <div className="relative w-full pt-[56.25%] sm:pt-[45%] md:pt-[40%] lg:pt-[38%]">
-        {/* Background image */}
         <div className="absolute inset-0">
           <Image
             src={slideshow2}
@@ -21,13 +17,10 @@ const Hero = () => {
             sizes="100vw"
             className="object-cover object-center"
           />
-          {/* Subtle bottom gradient for text readability (no gray at top) */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/55" />
         </div>
 
-        {/* Overlay content (centered); only CTA on mobile */}
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-white px-5 text-center">
-          {/* Hidden on mobile; shows from sm+ */}
           <h1 className="hidden sm:block text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
             Transform Your Style <br className="hidden md:block" /> with Premium Care
           </h1>
@@ -36,9 +29,13 @@ const Hero = () => {
             Discover the best in hair &amp; skin care — crafted for elegance and confidence.
           </p>
 
-          {/* CTA */}
+          {/* CTA hidden on mobile, visible from sm+ */}
           <div className="mt-5 sm:mt-6">
-            <Link href="/shop" prefetch className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full text-sm md:text-base">
+            <Link
+              href="/shop"
+              prefetch
+              className="hidden sm:inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full text-sm md:text-base"
+            >
               Shop Products <ArrowRightIcon size={16} />
             </Link>
           </div>

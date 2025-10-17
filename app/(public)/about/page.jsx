@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CheckCircle, FlaskConical, Leaf, Sparkles, Phone, Mail, MessageCircle } from "lucide-react";
-
+import bannerImg from "@/assets/banner-about.png";
 // About page for Mooi Professional — focused on Hair Care & Skin Care
 // TailwindCSS + Framer Motion animations
 // Drop this file in your Next.js app (e.g., app/about/page.jsx or src/pages/about.jsx)
@@ -62,17 +62,23 @@ export default function About() {
             </motion.div>
 
             <motion.div
-              variants={fadeUp}
-              className="h-64 w-full rounded-2xl bg-gradient-to-br from-rose-100 to-rose-200 shadow-inner md:h-80"
-            >
-              {/* Decorative shimmer */}
-              <motion.div
-                initial={{ x: -200 }}
-                animate={{ x: 300 }}
-                transition={{ repeat: Infinity, duration: 2.8, ease: "linear" }}
-                className="pointer-events-none absolute top-10 h-48 w-24 rotate-12 rounded-full bg-white/30 blur-2xl"
-              />
-            </motion.div>
+  variants={fadeUp}
+  className="relative h-64 w-full overflow-hidden rounded-2xl shadow-md md:h-80"
+>
+  <img
+    src={bannerImg.src}
+    alt="About Mooi Professional"
+    className="h-full w-full object-cover object-center"
+  />
+  {/* Subtle shimmer effect over image */}
+  <motion.div
+    initial={{ x: -200 }}
+    animate={{ x: 300 }}
+    transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+    className="pointer-events-none absolute top-0 h-full w-24 rotate-12 bg-white/20 blur-3xl"
+  />
+</motion.div>
+
           </motion.div>
         </div>
       </section>
@@ -183,23 +189,6 @@ export default function About() {
             Shop now
           </a>
         </motion.div>
-      </section>
-
-      {/* Optional: Support strip (keep or remove). If you don’t want Contact in navbar, this sits quietly on About. */}
-      <section className="border-t border-neutral-100 bg-neutral-50">
-        <div className="mx-auto max-w-6xl px-4 py-10">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h4 className="text-lg font-semibold">Need help choosing?</h4>
-              <p className="text-neutral-600">Talk to us for quick product guidance.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <ContactChip icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" href="#" />
-              <ContactChip icon={<Mail className="h-4 w-4" />} label="Email" href="mailto:support@mooiprofessional.com" />
-              <ContactChip icon={<Phone className="h-4 w-4" />} label="Call" href="tel:+91XXXXXXXXXX" />
-            </div>
-          </div>
-        </div>
       </section>
     </div>
   );
