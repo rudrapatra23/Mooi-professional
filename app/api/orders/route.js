@@ -1,274 +1,254 @@
-// app/api/order/create/route.js
+// app/api/orders/route.js
 import { NextResponse } from "next/server";
-import Razorpay from "razorpay";
 import { getAuth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 
-// Utility to extract items from body
-function tryGetItems(body) {
-  if (!body) return null;
-  if (Array.isArray(body.items) && body.items.length) return body.items;
-  if (Array.isArray(body.cart) && body.cart.length) return body.cart;
-  if (Array.isArray(body.products) && body.products.length) return body.products;
-  if (body.items && typeof body.items === "object" && !Array.isArray(body.items)) {
-    const map = body.items;
-    return Object.keys(map).map((k) => ({ id: k, quantity: map[k] }));
-  }
-  return null;
+// Admin check helper
+async function isAdmin(userId) {
+  if (!userId) return false;
+  
+  // Check if user is in ADMIN_USER_IDS
+  const adminUserIds = (process.env.ADMIN_USER_IDS || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  
+  if (adminUserIds.includes(userId)) return true;
+  
+  // Add other admin checks here if needed (email-based, etc.)
+  return false;
 }
 
-function parseAddressId(body) {
-  if (!body) return null;
-  if (body.addressId) return body.addressId;
-  if (body.address && (body.address.id || body.address._id))
-    return body.address.id ?? body.address._id;
-  return null;
-}
-
-export async function POST(req) {
+/**
+ * GET /api/orders
+ * - With ?admin=true -> Admin listing (all orders)
+ * - Without -> User's own orders
+ */
+export async function GET(req) {
   try {
     const { userId } = getAuth(req);
-    if (!userId)
-      return NextResponse.json({ ok: false, error: "not_authorized" }, { status: 401 });
-
-    const body = await req.json().catch(() => null);
-    console.log("[order-create] raw body:", JSON.stringify(body));
-
-    const addressId = parseAddressId(body);
-    const paymentMethod = (body.paymentMethod ?? body.payment ?? "").toUpperCase();
-    const rawItems = tryGetItems(body);
-    const clientTotal = typeof body.total === "number" ? Number(body.total) : null;
-    const couponCode = body.couponCode || null;
-
-    if (!addressId || !paymentMethod || !Array.isArray(rawItems) || rawItems.length === 0) {
-      return NextResponse.json({ ok: false, error: "missing_order_details" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // Compute subtotal from DB prices
-    let subtotal = 0;
-    const normalized = [];
-    for (const it of rawItems) {
-      const productId = it.id ?? it.productId;
-      const qty = Number(it.quantity ?? 1);
-      if (!productId)
-        return NextResponse.json({ ok: false, error: "invalid_item" }, { status: 400 });
+    const url = new URL(req.url);
+    const isAdminList = url.searchParams.get("admin") === "true";
+    const take = Math.min(Math.max(Number(url.searchParams.get("take") || 50), 1), 200);
+    const skip = Math.max(Number(url.searchParams.get("skip") || 0), 0);
 
-      const product = await prisma.product.findUnique({ where: { id: productId } });
-      if (!product)
-        return NextResponse.json(
-          { ok: false, error: "product_not_found", message: `Product ${productId} not found` },
-          { status: 404 }
-        );
-
-      const price = Number(product.price ?? it.price ?? 0);
-      subtotal += price * qty;
-      normalized.push({ productId, quantity: qty, price });
-    }
-
-    // Validate and apply coupon discount
-    let discountAmount = 0;
-    let appliedCoupon = null;
-
-    if (couponCode) {
-      const coupon = await prisma.coupon.findUnique({
-        where: { code: couponCode.toUpperCase() }
-      });
-
-      if (!coupon) {
-        return NextResponse.json(
-          { ok: false, error: "invalid_coupon", message: "Coupon code not found" },
-          { status: 400 }
-        );
+    // ----------------------
+    // Admin listing
+    // ----------------------
+    if (isAdminList) {
+      const userIsAdmin = await isAdmin(userId);
+      if (!userIsAdmin) {
+        return NextResponse.json({ ok: false, error: "Unauthorized - Admin only" }, { status: 401 });
       }
 
-      // Check if coupon is active
-      if (!coupon.isActive) {
-        return NextResponse.json(
-          { ok: false, error: "coupon_inactive", message: "This coupon is no longer active" },
-          { status: 400 }
-        );
-      }
-
-      // Check expiry date
-      const now = new Date();
-      if (coupon.expiresAt && new Date(coupon.expiresAt) < now) {
-        return NextResponse.json(
-          { ok: false, error: "coupon_expired", message: "This coupon has expired" },
-          { status: 400 }
-        );
-      }
-
-      // Check start date
-      if (coupon.startsAt && new Date(coupon.startsAt) > now) {
-        return NextResponse.json(
-          { ok: false, error: "coupon_not_started", message: "This coupon is not yet valid" },
-          { status: 400 }
-        );
-      }
-
-      // Check usage limit
-      if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-        return NextResponse.json(
-          { ok: false, error: "coupon_limit_reached", message: "This coupon has reached its usage limit" },
-          { status: 400 }
-        );
-      }
-
-      // Check minimum order value
-      if (coupon.minOrderValue && subtotal < coupon.minOrderValue) {
-        return NextResponse.json(
-          { 
-            ok: false, 
-            error: "minimum_order_not_met", 
-            message: `Minimum order value of ₹${coupon.minOrderValue} required for this coupon` 
+      try {
+        const orders = await prisma.order.findMany({
+          orderBy: { createdAt: "desc" },
+          take,
+          skip,
+          include: {
+            orderItems: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    mrp: true,
+                    price: true,
+                    images: true,
+                    category: true,
+                  },
+                },
+              },
+            },
+            address: true,
+            payments: true,
+            buyer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
-          { status: 400 }
-        );
-      }
-
-      // Calculate discount
-      if (coupon.discountType === "PERCENTAGE") {
-        discountAmount = (subtotal * coupon.discountValue) / 100;
-        if (coupon.maxDiscount) {
-          discountAmount = Math.min(discountAmount, coupon.maxDiscount);
-        }
-      } else if (coupon.discountType === "FIXED") {
-        discountAmount = Math.min(coupon.discountValue, subtotal);
-      }
-
-      discountAmount = parseFloat(discountAmount.toFixed(2));
-      appliedCoupon = coupon;
-    }
-
-    const SHIPPING_FEE = Number(body.shipping ?? 99);
-    const GST_RATE = typeof body.gstRate === "number" ? Number(body.gstRate) : 0.18;
-    
-    // Calculate GST on discounted subtotal
-    const subtotalAfterDiscount = subtotal - discountAmount;
-    const gstAmount = parseFloat((subtotalAfterDiscount * GST_RATE).toFixed(2));
-
-    const total = parseFloat(
-      (subtotalAfterDiscount + gstAmount + SHIPPING_FEE).toFixed(2)
-    );
-
-    if (clientTotal !== null && Math.abs(clientTotal - total) > 0.5) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "total_mismatch",
-          message: "Order total mismatch",
-          serverTotal: total,
-          clientTotal,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Transaction with coupon tracking
-    const result = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({
-        data: {
-          userId,
-          addressId,
-          subtotal,
-          shipping: SHIPPING_FEE,
-          gst: gstAmount,
-          discount: discountAmount,
-          total,
-          currency: "INR",
-          itemsJson: JSON.stringify(normalized),
-          status: paymentMethod === "COD" ? "ORDER_PLACED" : "PENDING",
-          paymentMethod,
-          couponCode: appliedCoupon?.code || null,
-        },
-      });
-
-      if (normalized.length) {
-        const itemsToInsert = normalized.map((it) => ({
-          orderId: order.id,
-          productId: it.productId,
-          quantity: it.quantity,
-          price: it.price,
-        }));
-        await tx.orderItem.createMany({ data: itemsToInsert, skipDuplicates: true });
-      }
-
-      const payment = await tx.payment.create({
-        data: {
-          orderId: order.id,
-          method: paymentMethod,
-          amount: total,
-          currency: "INR",
-          status: paymentMethod === "COD" ? "SUCCESS" : "PENDING",
-        },
-      });
-
-      // Increment coupon usage count if coupon was applied
-      if (appliedCoupon) {
-        await tx.coupon.update({
-          where: { id: appliedCoupon.id },
-          data: { usedCount: { increment: 1 } }
         });
+
+        const mapped = orders.map(o => {
+          const { buyer, ...rest } = o;
+          return { ...rest, user: buyer ?? null };
+        });
+
+        return NextResponse.json({ ok: true, orders: mapped }, { status: 200 });
+      } catch (dbErr) {
+        console.error("[GET /api/orders][admin] DB error:", dbErr);
+        return NextResponse.json({
+          ok: false,
+          error: "database_unavailable",
+          message: "Cannot fetch orders. Check server logs.",
+        }, { status: 503 });
       }
-
-      // Stock decrement for COD
-      if (paymentMethod === "COD") {
-        for (const item of normalized) {
-          const product = await tx.product.findUnique({ where: { id: item.productId } });
-          if (!product) continue;
-          const newStock = Math.max((product.stock || 0) - item.quantity, 0);
-          await tx.product.update({
-            where: { id: product.id },
-            data: { stock: newStock, inStock: newStock > 0 },
-          });
-        }
-      }
-
-      return { order, payment };
-    });
-
-    // Razorpay flow
-    if (paymentMethod === "RAZORPAY") {
-      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-        console.error("[order-create] razorpay not configured");
-        return NextResponse.json({ ok: false, error: "payment_unavailable" }, { status: 500 });
-      }
-
-      const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET,
-      });
-
-      const razorOrder = await razorpay.orders.create({
-        amount: Math.round(result.order.total * 100),
-        currency: "INR",
-        receipt: `rcpt_${result.order.id}`,
-      });
-
-      await prisma.payment.updateMany({
-        where: { orderId: result.order.id },
-        data: { razorpayOrderId: razorOrder.id, status: "PENDING" },
-      });
-
-      return NextResponse.json({
-        ok: true,
-        message: "payment_initiated",
-        razorpayOrderId: razorOrder.id,
-        amount: razorOrder.amount,
-        currency: razorOrder.currency,
-        keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        order: { id: result.order.id },
-      });
     }
 
-    // COD fallback
-    return NextResponse.json({
-      ok: true,
-      message: "order_created",
-      order: { id: result.order.id },
-    });
+    // ----------------------
+    // User's own orders
+    // ----------------------
+    try {
+      const userOrders = await prisma.order.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+        include: {
+          orderItems: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  mrp: true,
+                  price: true,
+                  images: true,
+                  category: true,
+                  inStock: true,
+                  stock: true,
+                },
+              },
+            },
+          },
+          address: true,
+          payments: true,
+        },
+      });
+
+      const items = userOrders.map(o => {
+        const mappedItems = (o.orderItems || []).map(it => {
+          const productMeta = it.product
+            ? {
+                id: it.product.id,
+                name: it.product.name,
+                description: it.product.description,
+                mrp: it.product.mrp,
+                images: it.product.images,
+                price: it.product.price,
+              }
+            : null;
+
+          const price = Number(it.price ?? 0);
+          const quantity = Number(it.quantity ?? 0);
+          const lineTotal = Number((price * quantity).toFixed(2));
+
+          return {
+            id: it.productId ? `${o.id}::${it.productId}` : it.id,
+            productId: it.productId,
+            name: productMeta?.name ?? null,
+            quantity,
+            price,
+            lineTotal,
+            product: productMeta,
+          };
+        });
+
+        return {
+          id: o.id,
+          createdAt: o.createdAt,
+          status: o.status,
+          paymentMethod: o.paymentMethod,
+          total: Number(o.total ?? 0),
+          subtotal: Number(o.subtotal ?? 0),
+          shipping: Number(o.shipping ?? 0),
+          gst: Number(o.gst ?? 0),
+          discount: Number(o.discount ?? 0),
+          couponCode: o.couponCode || null,
+          address: o.address ?? null,
+          payments: o.payments ?? [],
+          orderItems: mappedItems,
+        };
+      });
+
+      return NextResponse.json({ ok: true, items }, { status: 200 });
+    } catch (dbErr) {
+      console.error("[GET /api/orders][user] DB error:", dbErr);
+      return NextResponse.json({
+        ok: false,
+        error: "database_query_failed",
+        message: "Failed to fetch your orders.",
+        details: dbErr?.message,
+      }, { status: 500 });
+    }
   } catch (err) {
-    console.error("[order-create] unexpected error:", err);
-    return NextResponse.json({ ok: false, error: "internal" }, { status: 500 });
+    console.error("[GET /api/orders] unexpected error:", err);
+    return NextResponse.json({ 
+      ok: false, 
+      error: err?.message || "internal" 
+    }, { status: 500 });
   }
+}
+
+/**
+ * PATCH /api/orders
+ * Body: { orderId, status }
+ * Admin only: update order status
+ */
+export async function PATCH(req) {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userIsAdmin = await isAdmin(userId);
+    if (!userIsAdmin) {
+      return NextResponse.json({ ok: false, error: "Unauthorized - Admin only" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { orderId, status } = body;
+
+    if (!orderId || !status) {
+      return NextResponse.json({ ok: false, error: "Missing orderId or status" }, { status: 400 });
+    }
+
+    const allowedStatuses = ["ORDER_PLACED", "PROCESSING", "SHIPPED", "DELIVERED", "PENDING"];
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ ok: false, error: "Invalid status value" }, { status: 400 });
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: { status },
+      include: {
+        orderItems: { include: { product: true } },
+        payments: true,
+        address: true,
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const { buyer, ...rest } = updatedOrder;
+    const resOrder = { ...rest, user: buyer ?? null };
+
+    return NextResponse.json({ ok: true, order: resOrder }, { status: 200 });
+  } catch (err) {
+    console.error("[PATCH /api/orders] error:", err);
+    return NextResponse.json({ 
+      ok: false, 
+      error: err?.message || "internal" 
+    }, { status: 500 });
+  }
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({ ok: true }, { status: 200 });
 }
