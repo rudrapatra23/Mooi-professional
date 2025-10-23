@@ -38,6 +38,7 @@ export async function POST(req) {
     const paymentMethod = (body.paymentMethod ?? body.payment ?? "").toUpperCase();
     const rawItems = tryGetItems(body);
     const clientTotal = typeof body.total === "number" ? Number(body.total) : null;
+    const couponCode = body.couponCode || null;
 
     if (!addressId || !paymentMethod || !Array.isArray(rawItems) || rawItems.length === 0) {
       return NextResponse.json({ ok: false, error: "missing_order_details" }, { status: 400 });
@@ -64,12 +65,90 @@ export async function POST(req) {
       normalized.push({ productId, quantity: qty, price });
     }
 
+    // Validate and apply coupon discount
+    let discountAmount = 0;
+    let appliedCoupon = null;
+
+    if (couponCode) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: couponCode.toUpperCase() }
+      });
+
+      if (!coupon) {
+        return NextResponse.json(
+          { ok: false, error: "invalid_coupon", message: "Coupon code not found" },
+          { status: 400 }
+        );
+      }
+
+      // Check if coupon is active
+      if (!coupon.isActive) {
+        return NextResponse.json(
+          { ok: false, error: "coupon_inactive", message: "This coupon is no longer active" },
+          { status: 400 }
+        );
+      }
+
+      // Check expiry date
+      const now = new Date();
+      if (coupon.expiresAt && new Date(coupon.expiresAt) < now) {
+        return NextResponse.json(
+          { ok: false, error: "coupon_expired", message: "This coupon has expired" },
+          { status: 400 }
+        );
+      }
+
+      // Check start date
+      if (coupon.startsAt && new Date(coupon.startsAt) > now) {
+        return NextResponse.json(
+          { ok: false, error: "coupon_not_started", message: "This coupon is not yet valid" },
+          { status: 400 }
+        );
+      }
+
+      // Check usage limit
+      if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+        return NextResponse.json(
+          { ok: false, error: "coupon_limit_reached", message: "This coupon has reached its usage limit" },
+          { status: 400 }
+        );
+      }
+
+      // Check minimum order value
+      if (coupon.minOrderValue && subtotal < coupon.minOrderValue) {
+        return NextResponse.json(
+          { 
+            ok: false, 
+            error: "minimum_order_not_met", 
+            message: `Minimum order value of ₹${coupon.minOrderValue} required for this coupon` 
+          },
+          { status: 400 }
+        );
+      }
+
+      // Calculate discount
+      if (coupon.discountType === "PERCENTAGE") {
+        discountAmount = (subtotal * coupon.discountValue) / 100;
+        if (coupon.maxDiscount) {
+          discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+        }
+      } else if (coupon.discountType === "FIXED") {
+        discountAmount = Math.min(coupon.discountValue, subtotal);
+      }
+
+      discountAmount = parseFloat(discountAmount.toFixed(2));
+      appliedCoupon = coupon;
+    }
+
     const SHIPPING_FEE = Number(body.shipping ?? 99);
     const GST_RATE = typeof body.gstRate === "number" ? Number(body.gstRate) : 0.18;
-    const gstAmount = parseFloat((subtotal * GST_RATE).toFixed(2));
+    
+    // Calculate GST on discounted subtotal
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    const gstAmount = parseFloat((subtotalAfterDiscount * GST_RATE).toFixed(2));
 
     const total = parseFloat(
-      (subtotal + gstAmount + SHIPPING_FEE - Number(body.discount ?? 0)).toFixed(2)
+      (subtotalAfterDiscount + gstAmount + SHIPPING_FEE).toFixed(2)
     );
 
     if (clientTotal !== null && Math.abs(clientTotal - total) > 0.5) {
@@ -85,7 +164,7 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Transaction (unchanged logic + minimal COD stock fix)
+    // Transaction with coupon tracking
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
@@ -94,12 +173,13 @@ export async function POST(req) {
           subtotal,
           shipping: SHIPPING_FEE,
           gst: gstAmount,
-          discount: Number(body.discount ?? 0),
+          discount: discountAmount,
           total,
           currency: "INR",
           itemsJson: JSON.stringify(normalized),
           status: paymentMethod === "COD" ? "ORDER_PLACED" : "PENDING",
           paymentMethod,
+          couponCode: appliedCoupon?.code || null,
         },
       });
 
@@ -123,7 +203,15 @@ export async function POST(req) {
         },
       });
 
-      // 🔥 Added only this part: instant stock decrement for COD
+      // Increment coupon usage count if coupon was applied
+      if (appliedCoupon) {
+        await tx.coupon.update({
+          where: { id: appliedCoupon.id },
+          data: { usedCount: { increment: 1 } }
+        });
+      }
+
+      // Stock decrement for COD
       if (paymentMethod === "COD") {
         for (const item of normalized) {
           const product = await tx.product.findUnique({ where: { id: item.productId } });
@@ -139,7 +227,7 @@ export async function POST(req) {
       return { order, payment };
     });
 
-    // Razorpay flow (unchanged)
+    // Razorpay flow
     if (paymentMethod === "RAZORPAY") {
       if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
         console.error("[order-create] razorpay not configured");
@@ -173,7 +261,7 @@ export async function POST(req) {
       });
     }
 
-    // COD fallback (unchanged)
+    // COD fallback
     return NextResponse.json({
       ok: true,
       message: "order_created",

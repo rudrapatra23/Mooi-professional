@@ -17,9 +17,8 @@ model User {
 
   // Relations
   ratings     Rating[]
-  addresses   Address[] // renamed for clarity (was `Address`)
+  addresses   Address[]
   buyerOrders Order[]   @relation("BuyerRelation")
-  // store       Store?  // single-vendor
 }
 
 model Product {
@@ -62,35 +61,33 @@ enum PaymentMethod {
  * ---------- Orders & Payments ----------
  */
 model Order {
-  id            String        @id @default(cuid())
-  razorpayId    String?       @unique
-  userId        String?
-  addressId     String?
-  subtotal      Float         @default(0)
-  shipping      Float         @default(0)
-  gst           Float         @default(0)
-  discount      Float         @default(0)
+  id            String   @id @default(cuid())
+  userId        String
+  addressId     String
+  subtotal      Float
+  shipping      Float    @default(0)
+  gst           Float    @default(0)
+  discount      Float    @default(0)
   total         Float
-  currency      String        @default("INR")
-  itemsJson     String        @default("[]")
-  addressJson   String?
-  status        String        @default("created")
-  paymentMethod PaymentMethod @default(COD)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  currency      String   @default("INR")
+  itemsJson     String?  @db.Text
+  status        String   @default("PENDING")
+  paymentMethod String
+  couponCode    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  // soft-delete fields (new)
-  isDeleted     Boolean       @default(false)
-  deletedAt     DateTime?
-  deletedBy     String?
+  // Relations - FIXED: Added buyer relation
+  buyer       User        @relation("BuyerRelation", fields: [userId], references: [id], onDelete: Cascade)
+  address     Address     @relation(fields: [addressId], references: [id])
+  orderItems  OrderItem[]
+  payments    Payment[]
 
-  // Relations (opposites for other models)
-  buyer      User?       @relation("BuyerRelation", fields: [userId], references: [id])
-  address    Address?    @relation(fields: [addressId], references: [id])
-  orderItems OrderItem[]
-  payments   Payment[]
+  @@index([userId])
+  @@index([status])
+  @@index([couponCode])
+  @@index([createdAt])
 }
-
 
 model Payment {
   id                String   @id @default(cuid())
@@ -150,14 +147,24 @@ model Rating {
  * ---------- Coupon ----------
  */
 model Coupon {
-  code        String   @id
-  description String
-  discount    Float
-  forNewUser  Boolean
-  forMember   Boolean  @default(false)
-  isPublic    Boolean
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  id            String    @id @default(cuid())
+  code          String    @unique
+  description   String?
+  discountType  String    // "PERCENTAGE" or "FIXED"
+  discountValue Float     // Percentage (1-100) or fixed amount
+  maxDiscount   Float?    // Maximum discount for percentage coupons
+  minOrderValue Float?    // Minimum order value required
+  usageLimit    Int?      // Maximum number of times coupon can be used
+  usedCount     Int       @default(0)
+  isActive      Boolean   @default(true)
+  startsAt      DateTime? // When coupon becomes valid
+  expiresAt     DateTime? // When coupon expires
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([expiresAt])
 }
 
 /**
@@ -177,6 +184,6 @@ model Address {
   createdAt DateTime @default(now())
 
   // Relations
-  orders Order[] // opposite side for Order.address
+  orders Order[]
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -1,6 +1,6 @@
 // app/components/OrderSummary.jsx
 'use client';
-import { PlusIcon, SquarePenIcon } from 'lucide-react';
+import { PlusIcon, SquarePenIcon, TagIcon, XIcon } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 import AddressModal from './AddressModal';
 import { useDispatch, useSelector } from 'react-redux';
@@ -24,25 +24,92 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+
   // constants and calculations
   const SHIPPING_FEE = 99;
   const GST_RATE = 0.18;
 
-  // GST computed from subtotal (no coupon/discount)
-  const gstAmount = useMemo(() => {
+  // Discount calculation
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
     const base = Number(totalPrice || 0);
-    return Number((base * GST_RATE).toFixed(2));
-  }, [totalPrice]);
+    
+    if (appliedCoupon.discountType === 'PERCENTAGE') {
+      return Number((base * (appliedCoupon.discountValue / 100)).toFixed(2));
+    } else if (appliedCoupon.discountType === 'FIXED') {
+      return Number(Math.min(appliedCoupon.discountValue, base).toFixed(2));
+    }
+    return 0;
+  }, [totalPrice, appliedCoupon]);
+
+  // Subtotal after discount
+  const subtotalAfterDiscount = useMemo(() => {
+    return Number((Number(totalPrice || 0) - discountAmount).toFixed(2));
+  }, [totalPrice, discountAmount]);
+
+  // GST computed from subtotal after discount
+  const gstAmount = useMemo(() => {
+    return Number((subtotalAfterDiscount * GST_RATE).toFixed(2));
+  }, [subtotalAfterDiscount]);
 
   const finalTotal = useMemo(() => {
-    const tot = Number(totalPrice || 0) + Number(gstAmount || 0) + Number(SHIPPING_FEE || 0);
+    const tot = subtotalAfterDiscount + Number(gstAmount || 0) + Number(SHIPPING_FEE || 0);
     return Number(tot.toFixed(2));
-  }, [totalPrice, gstAmount]);
+  }, [subtotalAfterDiscount, gstAmount]);
+
+  // Apply Coupon
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error('Please enter a coupon code', { position: 'bottom-center' });
+      return;
+    }
+
+    try {
+      setCouponLoading(true);
+      const token = await getToken();
+      
+      const { data } = await axios.post('/api/coupon/validate', 
+        { 
+          code: couponCode.trim().toUpperCase(),
+          subtotal: Number(totalPrice || 0)
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (data?.ok && data?.coupon) {
+        setAppliedCoupon(data.coupon);
+        toast.success(`Coupon applied! You saved ${currency}${discountAmount}`, { 
+          position: 'top-center' 
+        });
+      } else {
+        toast.error(data?.error || 'Invalid coupon code', { position: 'bottom-center' });
+      }
+    } catch (error) {
+      console.error('Coupon validation error:', error);
+      toast.error(
+        error?.response?.data?.error || 'Failed to apply coupon', 
+        { position: 'top-center' }
+      );
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  // Remove Coupon
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    toast.success('Coupon removed', { position: 'bottom-center' });
+  };
 
   // Helper: show success toast (mobile-friendly) and redirect to home
   const handleSuccessRedirect = (orderId) => {
-    toast.success('Order confirmed — thank you! 🎉', {
-      position: 'bottom-center',
+    toast.success('Order placed — thank you!', {
+      position: 'top-center',
       duration: 3500,
     });
 
@@ -63,7 +130,7 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
     }, 800);
   };
 
-  // Place order (no coupon/discount fields)
+  // Place order with coupon support
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     try {
@@ -89,9 +156,11 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         addressId: selectedAddress.id ?? selectedAddress.addressId ?? selectedAddress._id,
         paymentMethod,
         items: itemsPayload,
-        gstAmount: Number(gstAmount.toFixed(2)),   // explicit monetary GST
+        gstAmount: Number(gstAmount.toFixed(2)),
         shipping: Number(SHIPPING_FEE.toFixed(2)),
         total: Number(finalTotal.toFixed(2)),
+        couponCode: appliedCoupon?.code || null,
+        discount: appliedCoupon ? Number(discountAmount.toFixed(2)) : 0,
       };
 
       console.log('ORDER DATA SENT ===>', JSON.stringify(orderData, null, 2));
@@ -110,7 +179,6 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         const { razorpayOrderId, amount, currency, keyId, order: createdOrder } = data;
 
         if (!razorpayOrderId) {
-          // fallback: server didn't return razorpay data
           toast.error(data?.error || 'Payment initialization failed', { position: 'bottom-center' });
           return;
         }
@@ -125,7 +193,7 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
 
         const options = {
           key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount,                // in paisa
+          amount,
           currency,
           order_id: razorpayOrderId,
           name: 'Mooi Professional',
@@ -199,6 +267,50 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         <label htmlFor="RAZORPAY" className="cursor-pointer">RAZORPAY Payment</label>
       </div>
 
+      {/* Coupon Section */}
+      <div className="my-4 py-4 border-y border-slate-200">
+        <p className="text-slate-400 mb-2">Have a Coupon?</p>
+        
+        {appliedCoupon ? (
+          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <TagIcon size={16} className="text-green-600" />
+              <div>
+                <p className="text-green-700 font-medium text-sm">{appliedCoupon.code}</p>
+                <p className="text-green-600 text-xs">
+                  Saved {currency}{discountAmount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRemoveCoupon}
+              className="text-red-500 hover:text-red-700 transition-colors"
+              aria-label="Remove coupon"
+            >
+              <XIcon size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="Enter coupon code"
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-slate-500 transition-colors"
+              disabled={couponLoading}
+            />
+            <button
+              onClick={handleApplyCoupon}
+              disabled={couponLoading || !couponCode.trim()}
+              className="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-900 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {couponLoading ? 'Applying...' : 'Apply'}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Address Section */}
       <div className="my-4 py-4 border-y border-slate-200 text-slate-400">
         <p>Address</p>
@@ -231,11 +343,15 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
         <div className="flex justify-between">
           <div className="flex flex-col gap-1 text-slate-400">
             <p>Subtotal:</p>
+            {appliedCoupon && <p className="text-green-600">Discount:</p>}
             <p>Shipping:</p>
             <p>GST (18%):</p>
           </div>
           <div className="flex flex-col gap-1 font-medium text-right">
             <p>{currency}{Number(totalPrice || 0).toLocaleString()}</p>
+            {appliedCoupon && (
+              <p className="text-green-600">-{currency}{discountAmount.toFixed(2)}</p>
+            )}
             <p><Protect plan={'plus'} fallback={`${currency}${SHIPPING_FEE}`}>Free</Protect></p>
             <p>{currency}{gstAmount.toFixed(2)}</p>
           </div>
