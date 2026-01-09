@@ -6,6 +6,7 @@ import Newsletter from "@/components/Newsletter";
 import OurSpecs from "@/components/OurSpec";
 import LatestProducts from "@/components/LatestProducts";
 import ShopByCategory from "@/components/ShopByCategory";
+import Reels from "@/components/Reels";
 
 export default function Home() {
   // Variants for sections
@@ -68,8 +69,9 @@ export default function Home() {
         custom={0.3}
       >
         <OurSpecs />
+        <Reels />
       </motion.section>
-
+    
       {/* Newsletter */}
       <motion.section
         variants={fadeUp}
