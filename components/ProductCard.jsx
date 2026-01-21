@@ -1,3 +1,4 @@
+'use client';
 // components/ProductCard.jsx
 import { Heart } from "lucide-react";
 import Image from "next/image";
