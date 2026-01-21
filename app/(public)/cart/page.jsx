@@ -97,70 +97,89 @@ export default function Cart() {
   };
 
   return Array.isArray(cartArray) && cartArray.length > 0 ? (
-    <div className="min-h-screen mx-6 text-slate-800">
-      <div className="max-w-7xl mx-auto">
-        <PageTitle heading="My Cart" text="items in your cart" linkText="Add more" />
+    <div className="min-h-screen bg-white pt-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between mb-8 border-b border-black pb-4">
+          <h1 className="text-3xl font-serif font-bold tracking-tight">Shopping Cart</h1>
+          <p className="text-sm text-gray-500 uppercase tracking-widest">{cartArray.length} Items</p>
+        </div>
 
-        <div className="flex items-start justify-between gap-5 max-lg:flex-col">
-          <table className="w-full max-w-4xl text-slate-600 table-auto">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">Product</th>
-                <th>Quantity</th>
-                <th>Total Price</th>
-                <th className="max-md:hidden">Remove</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cartArray.map((item) => (
-                <tr key={item.id} className="border-b">
-                  <td className="flex gap-3 my-4">
-                    <div className="flex items-center justify-center bg-slate-100 size-18 rounded-md overflow-hidden">
-                      <Image
-                        src={item?.images?.[0] ?? ""}
-                        className="h-14 w-auto"
-                        alt={item?.name ?? ""}
-                        width={56}
-                        height={56}
-                      />
-                    </div>
-                    <div>
-                      <p className="font-medium">{item?.name}</p>
-                      <p className="text-xs text-slate-500">{item?.category}</p>
-                      <p>
-                        {currency}
-                        {item?.price}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="text-center">
-                    <Counter productId={item?.id} />
-                  </td>
-                  <td className="text-center">
-                    {currency}
-                    {(Number(item?.price || 0) * Number(item?.quantity || 0)).toLocaleString()}
-                  </td>
-                  <td className="text-center max-md:hidden">
-                    <button
-                      onClick={() => handleDeleteItemFromCart(item?.id)}
-                      className="text-red-500 hover:bg-red-50 p-2.5 rounded-full"
-                    >
-                      <Trash2Icon size={18} />
-                    </button>
-                  </td>
+        <div className="flex items-start justify-between gap-10 max-lg:flex-col">
+          <div className="flex-1 w-full">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-black/10">
+                  <th className="py-4 text-xs font-bold uppercase tracking-widest text-black/60">Product</th>
+                  <th className="py-4 text-xs font-bold uppercase tracking-widest text-black/60 text-center">Quantity</th>
+                  <th className="py-4 text-xs font-bold uppercase tracking-widest text-black/60 text-right">Total</th>
+                  <th className="max-md:hidden py-4 text-xs font-bold uppercase tracking-widest text-black/60 text-center">Remove</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {cartArray.map((item) => (
+                  <tr key={item.id} className="border-b border-gray-100 group">
+                    <td className="py-6">
+                      <div className="flex gap-4">
+                        <div className="relative w-24 h-24 bg-gray-50 border border-gray-200 flex-shrink-0 flex items-center justify-center">
+                          <Image
+                            src={item?.images?.[0] ?? ""}
+                            className="max-h-20 w-auto object-contain mix-blend-multiply"
+                            alt={item?.name ?? ""}
+                            width={96}
+                            height={96}
+                          />
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <p className="font-bold text-sm uppercase tracking-wide text-black mb-1">{item?.name}</p>
+                          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{item?.category}</p>
+                          <p className="font-serif text-lg">
+                            {currency}
+                            {item?.price}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-6 text-center align-middle">
+                      <div className="inline-block border border-black p-1">
+                        <Counter productId={item?.id} />
+                      </div>
+                    </td>
+                    <td className="py-6 text-right align-middle font-serif text-lg font-medium">
+                      {currency}
+                      {(Number(item?.price || 0) * Number(item?.quantity || 0)).toLocaleString()}
+                    </td>
+                    <td className="py-6 text-center align-middle max-md:hidden">
+                      <button
+                        onClick={() => handleDeleteItemFromCart(item?.id)}
+                        className="text-gray-400 hover:text-red-600 transition-colors p-2"
+                      >
+                        <Trash2Icon size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-8">
+              <button className="text-xs font-bold uppercase tracking-widest border-b border-black pb-1 hover:text-gray-600 transition-colors">
+                Continue Shopping
+              </button>
+            </div>
+          </div>
 
           {/* ✅ Order Summary handles Subtotal + Shipping + GST + Payable */}
-          <OrderSummary totalPrice={totalPrice} items={cartArray} />
+          <div className="w-full lg:w-[350px] bg-gray-50 p-6 border border-gray-100">
+            <OrderSummary totalPrice={totalPrice} items={cartArray} />
+          </div>
         </div>
       </div>
     </div>
   ) : (
-    <div className="min-h-[80vh] mx-6 flex items-center justify-center text-slate-400">
-      <h1 className="text-2xl sm:text-4xl font-semibold">Your cart is empty</h1>
+    <div className="min-h-[60vh] mx-6 flex flex-col items-center justify-center text-slate-800">
+      <h1 className="text-4xl font-serif mb-4">Your cart is empty</h1>
+      <p className="text-gray-500 mb-8 max-w-sm text-center">Looks like you haven't added anything to your cart yet.</p>
+      <a href="/shop" className="px-8 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors">Start Shopping</a>
     </div>
   );
 }

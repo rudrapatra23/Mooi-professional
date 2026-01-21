@@ -191,15 +191,15 @@ export async function GET(req) {
         take,
         skip,
         include: {
-          payments: { select: { id: true, status: true, amount: true, provider: true, createdAt: true } },
+          payments: { select: { id: true, status: true, amount: true, method: true, createdAt: true } },
           orderItems: {
             include: {
               product: {
-                select: { id: true, name: true, slug: true, price: true, images: true },
+                select: { id: true, name: true, price: true, images: true },
               }
             }
           },
-          address: { select: { id: true, line1: true, line2: true, city: true, state: true, postalCode: true } },
+          address: { select: { id: true, street: true, city: true, state: true, zip: true } },
           buyer: { select: { id: true } },
         },
       });

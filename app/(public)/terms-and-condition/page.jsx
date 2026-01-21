@@ -2,111 +2,171 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, BookOpen } from 'lucide-react';
+import { FileText, ShieldCheck, CreditCard, Package, Scale, Copyright, Gavel, Mail } from 'lucide-react';
+import Link from 'next/link';
 
-const fadeUp3 = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.45 } } };
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+};
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } }
+};
 
 export default function TermsAndConditionsPage() {
   return (
-    <main className="min-h-screen bg-white text-neutral-800">
+    <main className="min-h-screen bg-white text-black">
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,theme(colors.rose.50),theme(colors.white))]" />
-        <div className="relative mx-auto max-w-6xl px-4 py-14 md:py-20">
-          <motion.div variants={fadeUp3} initial="hidden" animate="show" className="max-w-4xl">
-            <p className="text-sm tracking-[0.2em] text-rose-500 font-medium">MOOI PROFESSIONAL</p>
-            <h1 className="mt-3 text-3xl md:text-4xl font-bold leading-tight">Terms &amp; Conditions</h1>
-            <p className="mt-4 text-neutral-600">Short, clear bullet points — rules for using the site and placing orders.</p>
+      <section className="border-b border-black py-20 md:py-28">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="text-xs font-bold tracking-[0.3em] text-gray-400 uppercase">
+              MOOI PROFESSIONAL
+            </span>
+            <h1 className="mt-4 text-4xl md:text-6xl font-serif font-bold uppercase tracking-tight">
+              Terms & Conditions
+            </h1>
+            <motion.div
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="w-16 h-[2px] bg-black mx-auto my-6"
+            />
+            <p className="text-gray-500 max-w-lg mx-auto">
+              Rules for using the site and placing orders — clear and concise.
+            </p>
           </motion.div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 pb-20">
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} variants={{ show: { transition: { staggerChildren: 0.06 } } }}>
-
-          <motion.div variants={fadeUp3} className="rounded-2xl border border-neutral-100 bg-neutral-50 p-6 shadow-sm">
-            <div className="flex items-start gap-4">
-              <ShieldCheck className="h-6 w-6 text-rose-600 mt-1" />
-              <div>
-                <h3 className="text-lg font-semibold">Summary (quick)</h3>
-                <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                  <li>Orders cancellable only before processing.</li>
-                  <li>Shipping fee ₹99 applies to every order.</li>
-                  <li>Mooi may refuse or cancel orders for fraud or misuse.</li>
-                </ul>
+      {/* Quick Summary */}
+      <section className="py-16 bg-black text-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center"
+          >
+            <ShieldCheck className="h-8 w-8 mx-auto mb-4" />
+            <h2 className="text-xl font-bold uppercase tracking-widest mb-6">Quick Summary</h2>
+            <div className="grid md:grid-cols-3 gap-8 text-left">
+              <div className="border-l border-white/30 pl-4">
+                <p className="text-gray-300">Orders can be cancelled only before processing begins.</p>
+              </div>
+              <div className="border-l border-white/30 pl-4">
+                <p className="text-gray-300">Shipping fee of ₹99 applies to every order.</p>
+              </div>
+              <div className="border-l border-white/30 pl-4">
+                <p className="text-gray-300">Mooi may refuse orders for fraud or misuse.</p>
               </div>
             </div>
           </motion.div>
+        </div>
+      </section>
 
-          <motion.section variants={fadeUp3} className="mt-8 space-y-8">
-            <Block title="Use of website">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Use the site only for lawful purposes.</li>
-                <li>Do not attempt unauthorized access or data scraping.</li>
+      {/* Detailed Sections */}
+      <section className="py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.1 }}
+            className="space-y-12"
+          >
+            <Section icon={<FileText className="h-5 w-5" />} title="Use of Website">
+              <ul className="space-y-2 text-gray-600">
+                <li>• Use the site only for lawful purposes</li>
+                <li>• Do not attempt unauthorized access or data scraping</li>
+                <li>• Respect intellectual property and content ownership</li>
               </ul>
-            </Block>
+            </Section>
 
-            <Block title="Account & security">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Keep login details secure — you're responsible for activity on your account.</li>
-                <li>Report unauthorized access immediately.</li>
+            <Section icon={<ShieldCheck className="h-5 w-5" />} title="Account & Security">
+              <ul className="space-y-2 text-gray-600">
+                <li>• Keep login details secure — you're responsible for activity on your account</li>
+                <li>• Report unauthorized access immediately</li>
+                <li>• We reserve the right to suspend accounts that violate terms</li>
               </ul>
-            </Block>
+            </Section>
 
-            <Block title="Orders & payments">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Prices in INR. Razorpay and COD supported.</li>
-                <li>Shipping (₹99) is non-refundable unless Mooi is at fault.</li>
+            <Section icon={<CreditCard className="h-5 w-5" />} title="Orders & Payments">
+              <ul className="space-y-2 text-gray-600">
+                <li>• All prices are in INR (Indian Rupees)</li>
+                <li>• Razorpay and Cash on Delivery (COD) supported</li>
+                <li>• Shipping fee (₹99) is non-refundable unless Mooi is at fault</li>
               </ul>
-            </Block>
+            </Section>
 
-            <Block title="Cancellations & returns">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Cancel before processing via email.</li>
-                <li>After processing, requests are reviewed case-by-case.</li>
-                <li>Returns only for defects verified by our team.</li>
+            <Section icon={<Package className="h-5 w-5" />} title="Cancellations & Returns">
+              <ul className="space-y-2 text-gray-600">
+                <li>• Cancel before processing via email</li>
+                <li>• After processing, requests are reviewed case-by-case</li>
+                <li>• Returns accepted only for defects verified by our team</li>
               </ul>
-            </Block>
+            </Section>
 
-            <Block title="Limitation of liability">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Mooi is not liable for indirect or consequential damages.</li>
-                <li>Maximum liability capped at product value.</li>
+            <Section icon={<Scale className="h-5 w-5" />} title="Limitation of Liability">
+              <ul className="space-y-2 text-gray-600">
+                <li>• Mooi is not liable for indirect or consequential damages</li>
+                <li>• Maximum liability is capped at the product value</li>
               </ul>
-            </Block>
+            </Section>
 
-            <Block title="Intellectual property">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>All content is owned by Mooi Professional and protected by law.</li>
-                <li>Do not reproduce our branding or product content without permission.</li>
+            <Section icon={<Copyright className="h-5 w-5" />} title="Intellectual Property">
+              <ul className="space-y-2 text-gray-600">
+                <li>• All content is owned by Mooi Professional and protected by Indian law</li>
+                <li>• Do not reproduce our branding or product content without permission</li>
               </ul>
-            </Block>
+            </Section>
 
-            <Block title="Governing law">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>These terms are governed by Indian law.</li>
-                <li>Disputes are subject to courts in Noida, Uttar Pradesh.</li>
+            <Section icon={<Gavel className="h-5 w-5" />} title="Governing Law">
+              <ul className="space-y-2 text-gray-600">
+                <li>• These terms are governed by Indian law</li>
+                <li>• Disputes are subject to courts in Noida, Uttar Pradesh</li>
               </ul>
-            </Block>
+            </Section>
 
-          </motion.section>
-
-          <motion.div variants={fadeUp3} className="mt-10 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
-            <h4 className="font-semibold">Questions?</h4>
-            <p className="mt-2 text-neutral-700">Email <a className="text-rose-600" href="mailto:info@mooiprofessional.com">info@mooiprofessional.com</a>.</p>
+            {/* Contact CTA */}
+            <motion.div
+              variants={fadeUp}
+              className="border border-black p-8 text-center"
+            >
+              <Mail className="h-6 w-6 mx-auto mb-4" />
+              <h3 className="text-lg font-bold uppercase tracking-widest mb-2">Questions?</h3>
+              <p className="text-gray-600 mb-4">We're here to clarify any terms or policies.</p>
+              <a
+                href="mailto:info@mooiprofessional.com"
+                className="inline-block bg-black text-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors"
+              >
+                Contact Us
+              </a>
+            </motion.div>
           </motion.div>
-
-        </motion.div>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
 
-function Block({ title, children }) {
+function Section({ icon, title, children }) {
   return (
-    <div>
-      <h3 className="text-lg font-semibold">{title}</h3>
-      <div className="mt-2 text-neutral-700">{children}</div>
-    </div>
+    <motion.div variants={fadeUp}>
+      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black">
+        <div className="w-8 h-8 border border-black flex items-center justify-center">
+          {icon}
+        </div>
+        <h3 className="text-lg font-bold uppercase tracking-widest">{title}</h3>
+      </div>
+      <div>{children}</div>
+    </motion.div>
   );
 }

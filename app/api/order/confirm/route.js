@@ -58,7 +58,6 @@ export async function POST(req) {
         where: { id: payment.orderId },
         data: {
           status: "PROCESSING",
-          razorpayId: razorpay_order_id,
         },
         include: { orderItems: true },
       });
@@ -83,6 +82,28 @@ export async function POST(req) {
 
       return { ok: true, orderId: order.id };
     });
+
+    // ✅ Fetch complete order details for email
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: txResult.orderId },
+      include: {
+        orderItems: {
+          include: { product: { select: { name: true, images: true } } }
+        },
+        address: true,
+        buyer: true,
+      },
+    });
+
+    // ✅ Send email notifications (non-blocking)
+    if (fullOrder) {
+      const { sendOrderEmails } = await import('@/lib/email');
+      sendOrderEmails({
+        order: fullOrder,
+        customerEmail: fullOrder.buyer?.email || fullOrder.address?.email,
+        customerName: fullOrder.address?.name || fullOrder.buyer?.name || 'Customer',
+      }).catch(err => console.error('[order-confirm] email error:', err));
+    }
 
     // ✅ success
     return NextResponse.json({

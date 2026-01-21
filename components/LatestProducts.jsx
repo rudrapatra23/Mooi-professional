@@ -57,7 +57,7 @@ export default function LatestProducts() {
           xl:gap-10 
           overflow-x-auto 
           scrollbar-thin 
-          scrollbar-thumb-emerald-500 
+          scrollbar-thumb-black 
           scrollbar-track-gray-200 
           pb-4
         "

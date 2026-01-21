@@ -1,194 +1,228 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCircle, FlaskConical, Leaf, Sparkles, Phone, Mail, MessageCircle } from "lucide-react";
-import bannerImg from "@/assets/banner-about.png";
-// About page for Mooi Professional — focused on Hair Care & Skin Care
-// TailwindCSS + Framer Motion animations
-// Drop this file in your Next.js app (e.g., app/about/page.jsx or src/pages/about.jsx)
-// If using app router, export default as a Client Component.
+import { CheckCircle, FlaskConical, Leaf, Sparkles, Award, Star, Shield, Truck } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+  hidden: { opacity: 0, y: 30 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" } },
 };
 
 const stagger = {
   hidden: {},
   show: {
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.1,
+      staggerChildren: 0.1,
+      delayChildren: 0.15,
     },
   },
 };
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-white text-neutral-800">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
+    <div className="min-h-screen bg-white text-black">
+      {/* Hero Section - Full Width with Dramatic Typography */}
+      <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden border-b border-black">
+        <div className="absolute inset-0 bg-gradient-to-b from-neutral-100 to-white" />
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,theme(colors.rose.50),theme(colors.white))]"
-        />
-        <div className="relative mx-auto max-w-6xl px-4 py-20 md:py-28">
+          transition={{ duration: 1 }}
+          className="relative z-10 text-center px-4 py-20 max-w-5xl mx-auto"
+        >
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-xs font-bold tracking-[0.4em] text-gray-500 uppercase mb-6"
+          >
+            MOOI PROFESSIONAL
+          </motion.p>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold tracking-tight leading-none uppercase"
+          >
+            Our Story
+          </motion.h1>
+
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+            className="w-24 h-[2px] bg-black mx-auto my-8"
+          />
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed"
+          >
+            Where science meets artistry. Professional-grade formulas crafted for those who demand excellence in every detail.
+          </motion.p>
+        </motion.div>
+      </section>
+
+      {/* Brand Statement */}
+      <section className="py-20 md:py-32 border-b border-black">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div
             variants={stagger}
             initial="hidden"
-            animate="show"
-            className="grid gap-6 md:grid-cols-[1.2fr_1fr] md:items-center"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.3 }}
+            className="grid md:grid-cols-2 gap-16 items-center"
           >
             <motion.div variants={fadeUp}>
-              <p className="text-sm tracking-[0.2em] text-rose-500 font-medium">MOOI PROFESSIONAL</p>
-              <h1 className="mt-3 text-4xl font-bold leading-tight md:text-5xl">
-                Science + Nature, your everyday luxury
-              </h1>
-              <p className="mt-4 max-w-2xl text-neutral-600">
-                At <span className="font-semibold">Mooi Professional</span>, artistry, science and care
-                come together to redefine beauty. Our professional-grade
-                <span className="mx-1 font-semibold">Hair Care</span> and
-                <span className="mx-1 font-semibold">Skin Care</span> collections are crafted with advanced
-                actives and nature’s finest extracts to deliver transformative
-                results—turning daily care into a refined self‑care ritual.
+              <span className="text-xs font-bold tracking-[0.3em] text-gray-400 uppercase">The Philosophy</span>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold mt-4 mb-6 uppercase tracking-tight">
+                Beauty Without Compromise
+              </h2>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                At <span className="font-semibold text-black">Mooi Professional</span>, we believe that true luxury lies in the details. Our formulations blend cutting-edge science with nature's finest ingredients to deliver transformative results.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Badge>Salon-grade formulas</Badge>
-                <Badge>Clean & conscious</Badge>
-                <Badge>Sulphate & Paraben free</Badge>
+              <p className="text-gray-600 leading-relaxed">
+                Every product is a testament to our commitment: salon-grade performance, consciously crafted, uncompromising quality.
+              </p>
+
+              <div className="flex flex-wrap gap-4 mt-8">
+                <Badge>Salon-Grade</Badge>
+                <Badge>Clean Beauty</Badge>
+                <Badge>Sulphate-Free</Badge>
               </div>
             </motion.div>
 
             <motion.div
-  variants={fadeUp}
-  className="relative h-64 w-full overflow-hidden rounded-2xl shadow-md md:h-80"
->
-  <img
-    src={bannerImg.src}
-    alt="About Mooi Professional"
-    className="h-full w-full object-cover object-center"
-  />
-  {/* Subtle shimmer effect over image */}
-  <motion.div
-    initial={{ x: -200 }}
-    animate={{ x: 300 }}
-    transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-    className="pointer-events-none absolute top-0 h-full w-24 rotate-12 bg-white/20 blur-3xl"
-  />
-</motion.div>
-
+              variants={fadeUp}
+              className="relative aspect-[4/5] bg-neutral-100 border border-black overflow-hidden"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-6xl font-serif font-bold">M</p>
+                  <p className="text-xs tracking-[0.4em] uppercase mt-2">Since 2020</p>
+                </div>
+              </div>
+              {/* Decorative corner */}
+              <div className="absolute top-0 right-0 w-16 h-16 border-l border-b border-black" />
+              <div className="absolute bottom-0 left-0 w-16 h-16 border-r border-t border-black" />
+            </motion.div>
           </motion.div>
         </div>
       </section>
 
       {/* Brand Pillars */}
-      <section className="mx-auto max-w-6xl px-4 py-12 md:py-16">
-        <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.3 }}>
-          <motion.h2 variants={fadeUp} className="text-2xl font-semibold md:text-3xl">
-            What makes Mooi different
-          </motion.h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Pillar
-              icon={<FlaskConical className="h-6 w-6" />}
-              title="Advanced Actives"
-              desc="Keratin, Redensyl, Retinol, Vitamin C and more—backed by research for visible results."
-            />
-            <Pillar
-              icon={<Leaf className="h-6 w-6" />}
-              title="Nature Enriched"
-              desc="Botanical extracts nourish while remaining gentle on hair and skin."
-            />
-            <Pillar
-              icon={<Sparkles className="h-6 w-6" />}
-              title="Salon Performance"
-              desc="Professional-grade care trusted by stylists, loved at home."
-            />
-            <Pillar
-              icon={<CheckCircle className="h-6 w-6" />}
-              title="Conscious Care"
-              desc="Sulphate-free, paraben-free approach for a clean, luxurious routine."
-            />
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Ranges */}
-      <section className="mx-auto max-w-6xl px-4 py-12 md:py-16">
-        <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
-          <motion.h2 variants={fadeUp} className="text-2xl font-semibold md:text-3xl">
-            Our Focused Ranges
-          </motion.h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <CategoryCard
-              tag="Hair Care"
-              title="Smooth. Strengthen. Shine."
-              bullets={[
-                "Keratin smoothing & frizz control",
-                "Vegan Plastia sulphate‑free cleansing",
-                "Intense repair: Hair Botox & Spa Cream",
-                "Finishing serums for gloss and humidity shield",
-              ]}
-            />
-            <CategoryCard
-              tag="Skin Care"
-              title="Clarity meets care"
-              bullets={[
-                "Foaming face wash with lactic acid freshness",
-                "Targeted serums: Vitamin C • Kojic • Retinol",
-                "Peel‑off masks: Brightening, Anti‑Aging, Anti‑Acne",
-                "Clean formulations—effective yet gentle",
-              ]}
-            />
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Story / Philosophy */}
-      <section className="mx-auto max-w-6xl px-4 py-12 md:py-16">
-        <motion.div
-          className="rounded-3xl bg-neutral-50 p-6 md:p-10 shadow-sm"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.6 }}
-        >
-          <h3 className="text-xl font-semibold md:text-2xl">Our Philosophy</h3>
-          <p className="mt-3 text-neutral-700">
-            We design products that embody performance, purity and sophistication—
-            inspiring confidence and timeless beauty. Every formula aims to elevate
-            everyday care into a ritual you look forward to.
-          </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <ListItem text="Targeted action that repairs from within—beyond surface gloss." />
-            <ListItem text="Lightweight textures that hydrate without heaviness." />
-            <ListItem text="Protect color & salon treatments; enhance natural shine." />
-            <ListItem text="Results that are visible, buildable and long‑lasting." />
-          </div>
-        </motion.div>
-      </section>
-
-      {/* CTA */}
-      <section className="mx-auto max-w-6xl px-4 pb-16">
-        <motion.div
-          initial={{ scale: 0.98, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 1 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col items-center justify-between gap-6 rounded-3xl bg-gradient-to-r from-rose-500 to-rose-400 px-6 py-10 text-white md:flex-row"
-        >
-          <div>
-            <h3 className="text-2xl font-semibold md:text-3xl">Luxury care, perfected for you</h3>
-            <p className="mt-1 text-white/90">Explore hair & skin formulas made for real results.</p>
-          </div>
-          <a
-            href="/shop"
-            className="inline-flex items-center rounded-2xl bg-white px-5 py-3 font-medium text-rose-600 shadow-sm transition hover:shadow-md"
+      <section className="py-20 md:py-32 bg-black text-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.3 }}
           >
-            Shop now
-          </a>
-        </motion.div>
+            <motion.div variants={fadeUp} className="text-center mb-16">
+              <span className="text-xs font-bold tracking-[0.3em] text-gray-500 uppercase">Why Choose Us</span>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold mt-4 uppercase tracking-tight">
+                The Mooi Difference
+              </h2>
+            </motion.div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              <Pillar
+                icon={<FlaskConical className="h-6 w-6" />}
+                title="Advanced Actives"
+                desc="Keratin, Redensyl, Retinol & Vitamin C—backed by research for visible results."
+              />
+              <Pillar
+                icon={<Leaf className="h-6 w-6" />}
+                title="Nature Enriched"
+                desc="Botanical extracts that nourish while remaining gentle on hair and skin."
+              />
+              <Pillar
+                icon={<Sparkles className="h-6 w-6" />}
+                title="Salon Performance"
+                desc="Professional-grade care trusted by stylists, loved at home."
+              />
+              <Pillar
+                icon={<Shield className="h-6 w-6" />}
+                title="Conscious Care"
+                desc="Sulphate-free, paraben-free approach for a clean, luxurious routine."
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Product Ranges */}
+      <section className="py-20 md:py-32 border-b border-black">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-16">
+              <span className="text-xs font-bold tracking-[0.3em] text-gray-400 uppercase">Collections</span>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold mt-4 uppercase tracking-tight">
+                Our Focused Ranges
+              </h2>
+            </motion.div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              <CategoryCard
+                tag="Hair Care"
+                title="Smooth. Strengthen. Shine."
+                bullets={[
+                  "Keratin smoothing & frizz control",
+                  "Vegan Plastia sulphate-free cleansing",
+                  "Intense repair: Hair Botox & Spa Cream",
+                  "Finishing serums for gloss and humidity shield",
+                ]}
+              />
+              <CategoryCard
+                tag="Skin Care"
+                title="Clarity Meets Care"
+                bullets={[
+                  "Foaming face wash with lactic acid freshness",
+                  "Targeted serums: Vitamin C • Kojic • Retinol",
+                  "Peel-off masks: Brightening, Anti-Aging, Anti-Acne",
+                  "Clean formulations—effective yet gentle",
+                ]}
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 md:py-32 bg-neutral-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.7 }}
+          >
+            <h2 className="text-3xl md:text-5xl font-serif font-bold uppercase tracking-tight mb-6">
+              Experience The Difference
+            </h2>
+            <p className="text-gray-600 text-lg mb-10 max-w-xl mx-auto">
+              Discover why professionals and beauty enthusiasts choose Mooi for their daily rituals.
+            </p>
+            <Link
+              href="/shop"
+              className="inline-block bg-black text-white px-12 py-4 text-sm font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors"
+            >
+              Shop Now
+            </Link>
+          </motion.div>
+        </div>
       </section>
     </div>
   );
@@ -198,7 +232,7 @@ function Badge({ children }) {
   return (
     <motion.span
       variants={fadeUp}
-      className="inline-flex items-center rounded-full border border-rose-200 bg-white px-3 py-1 text-sm text-rose-600 shadow-sm"
+      className="inline-flex items-center border border-black px-4 py-2 text-xs font-bold uppercase tracking-widest"
     >
       {children}
     </motion.span>
@@ -209,13 +243,13 @@ function Pillar({ icon, title, desc }) {
   return (
     <motion.div
       variants={fadeUp}
-      className="group rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+      className="group text-center p-6 border border-white/20 hover:bg-white hover:text-black transition-all duration-300"
     >
-      <div className="flex items-center gap-3 text-rose-600">
-        <div className="rounded-xl bg-rose-50 p-2">{icon}</div>
-        <h3 className="text-base font-semibold">{title}</h3>
+      <div className="w-12 h-12 mx-auto mb-4 border border-current flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+        {icon}
       </div>
-      <p className="mt-2 text-sm text-neutral-600">{desc}</p>
+      <h3 className="text-sm font-bold uppercase tracking-widest mb-3">{title}</h3>
+      <p className="text-sm text-gray-400 group-hover:text-gray-600 leading-relaxed">{desc}</p>
     </motion.div>
   );
 }
@@ -224,49 +258,20 @@ function CategoryCard({ tag, title, bullets = [] }) {
   return (
     <motion.div
       variants={fadeUp}
-      className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+      className="group border border-black p-8 md:p-10 hover:bg-black hover:text-white transition-all duration-500"
     >
-      <div className="flex items-center gap-2 text-rose-600">
-        <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium">{tag}</span>
-      </div>
-      <h3 className="mt-3 text-xl font-semibold">{title}</h3>
-      <ul className="mt-3 space-y-2 text-sm text-neutral-700">
+      <span className="inline-block border border-current px-3 py-1 text-xs font-bold uppercase tracking-widest mb-4">
+        {tag}
+      </span>
+      <h3 className="text-2xl font-serif font-bold uppercase tracking-tight mb-6">{title}</h3>
+      <ul className="space-y-3">
         {bullets.map((b, i) => (
-          <li key={i} className="flex gap-2">
-            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
-            <span>{b}</span>
+          <li key={i} className="flex gap-3 text-sm">
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="text-gray-600 group-hover:text-gray-300">{b}</span>
           </li>
         ))}
       </ul>
-      {/* Gloss highlight */}
-      <motion.div
-        initial={{ x: -200 }}
-        whileInView={{ x: 300 }}
-        viewport={{ once: true }}
-        transition={{ duration: 2.5, ease: "linear" }}
-        className="pointer-events-none absolute -top-6 left-10 h-28 w-16 rotate-12 rounded-full bg-rose-100/60 blur-2xl"
-      />
     </motion.div>
-  );
-}
-
-function ListItem({ text }) {
-  return (
-    <div className="flex items-start gap-2">
-      <CheckCircle className="mt-0.5 h-5 w-5 text-rose-500" />
-      <p className="text-neutral-700">{text}</p>
-    </div>
-  );
-}
-
-function ContactChip({ icon, label, href }) {
-  return (
-    <a
-      href={href}
-      className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 shadow-sm transition hover:shadow-md hover:border-rose-200"
-    >
-      <span className="text-rose-600">{icon}</span>
-      <span>{label}</span>
-    </a>
   );
 }

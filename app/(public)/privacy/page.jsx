@@ -1,119 +1,173 @@
-// File: app/privacy-policy/page.jsx
 'use client';
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Mail, Users, Clock } from 'lucide-react';
+import { ShieldCheck, Users, Clock, Mail } from 'lucide-react';
+import Link from 'next/link';
 
-const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.45 } } };
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+};
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } }
+};
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-white text-neutral-800">
+    <main className="min-h-screen bg-white text-black">
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,theme(colors.rose.50),theme(colors.white))]" />
-        <div className="relative mx-auto max-w-6xl px-4 py-14 md:py-20">
-          <motion.div variants={fadeUp} initial="hidden" animate="show" className="max-w-4xl">
-            <p className="text-sm tracking-[0.2em] text-rose-500 font-medium">MOOI PROFESSIONAL</p>
-            <h1 className="mt-3 text-3xl md:text-4xl font-bold leading-tight">Privacy Policy</h1>
-            <p className="mt-4 text-neutral-600">Quick, clear bullets — everything you need to know about your data.</p>
+      <section className="border-b border-black py-20 md:py-28">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="text-xs font-bold tracking-[0.3em] text-gray-400 uppercase">
+              MOOI PROFESSIONAL
+            </span>
+            <h1 className="mt-4 text-4xl md:text-6xl font-serif font-bold uppercase tracking-tight">
+              Privacy Policy
+            </h1>
+            <motion.div
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="w-16 h-[2px] bg-black mx-auto my-6"
+            />
+            <p className="text-gray-500 max-w-lg mx-auto">
+              Clear, concise information about how we handle your data.
+            </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Content */}
-      <div className="mx-auto max-w-6xl px-4 pb-20">
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} variants={{ show: { transition: { staggerChildren: 0.06 } } }}>
-
-          <motion.div variants={fadeUp} className="grid gap-6 md:grid-cols-3">
-            <InfoCard icon={<ShieldCheck className="h-5 w-5 text-rose-600"/>} title="Summary">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>We collect minimal data to fulfill orders and provide support.</li>
-                <li>Payment card details are handled by Razorpay — we don't store card numbers.</li>
-                <li>No analytics or advertising trackers enabled by default.</li>
+      {/* Summary Cards */}
+      <section className="py-16 border-b border-black">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+            className="grid md:grid-cols-3 gap-6"
+          >
+            <InfoCard icon={<ShieldCheck className="h-5 w-5" />} title="Summary">
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>• Minimal data collected to fulfill orders</li>
+                <li>• Payment details handled by Razorpay</li>
+                <li>• No analytics or ad trackers enabled</li>
               </ul>
             </InfoCard>
 
-            <InfoCard icon={<Users className="h-5 w-5 text-rose-600"/>} title="What we collect">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Account: name, email (Clerk).</li>
-                <li>Orders: shipping & billing address, phone, order history.</li>
-                <li>Support: messages, emails you send us.</li>
+            <InfoCard icon={<Users className="h-5 w-5" />} title="What We Collect">
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>• Account info: name, email (via Clerk)</li>
+                <li>• Order details: address, phone, history</li>
+                <li>• Support: messages and emails you send</li>
               </ul>
             </InfoCard>
 
-            <InfoCard icon={<Clock className="h-5 w-5 text-rose-600"/>} title="Retention & security">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>We retain transactional data as required by law.</li>
-                <li>Account deletion removes personal data except limited records we must keep.</li>
-                <li>Standard security measures in place — keep passwords secure.</li>
+            <InfoCard icon={<Clock className="h-5 w-5" />} title="Retention & Security">
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>• Transactional data retained as legally required</li>
+                <li>• Account deletion removes personal data</li>
+                <li>• Standard security measures in place</li>
               </ul>
             </InfoCard>
           </motion.div>
+        </div>
+      </section>
 
-          <motion.section variants={fadeUp} className="mt-8 space-y-8">
+      {/* Detailed Sections */}
+      <section className="py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.1 }}
+            className="space-y-12"
+          >
             <Section title="Cookies & Tracking">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>No analytics or ad trackers enabled by default.</li>
-                <li>If we add tracking, we will update this policy and notify users.</li>
+              <ul className="space-y-2 text-gray-600">
+                <li>• No analytics or advertising trackers enabled by default</li>
+                <li>• If we add tracking, we will update this policy and notify users</li>
               </ul>
             </Section>
 
-            <Section title="Third-party services">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Clerk — authentication and account management.</li>
-                <li>Razorpay — prepaid payment processing.</li>
-                <li>Logistics partners — delivery and shipping details for fulfilment.</li>
+            <Section title="Third-Party Services">
+              <ul className="space-y-2 text-gray-600">
+                <li>• <strong>Clerk</strong> — Authentication and account management</li>
+                <li>• <strong>Razorpay</strong> — Prepaid payment processing</li>
+                <li>• <strong>Logistics partners</strong> — Delivery and shipping fulfilment</li>
               </ul>
             </Section>
 
-            <Section title="Your rights">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Access or correct personal data by emailing <a className="text-rose-600" href="mailto:info@mooiprofessional.com">info@mooiprofessional.com</a>.</li>
-                <li>Request deletion — we'll comply where legally permitted (transactional records may remain).</li>
+            <Section title="Your Rights">
+              <ul className="space-y-2 text-gray-600">
+                <li>• Access or correct personal data by emailing us</li>
+                <li>• Request deletion — we'll comply where legally permitted</li>
+                <li>• Some transactional records may be retained as required by law</li>
               </ul>
             </Section>
 
             <Section title="Children">
-              <ul className="mt-2 ml-5 list-disc text-neutral-700 space-y-1">
-                <li>Not intended for children under 13.</li>
-                <li>If we learn we collected a child's data, we will delete it promptly.</li>
+              <ul className="space-y-2 text-gray-600">
+                <li>• Our services are not intended for children under 13</li>
+                <li>• If we learn we collected a child's data, we will delete it promptly</li>
               </ul>
             </Section>
 
-            <Section title="Contact">
-              <p className="mt-2 text-neutral-700">Questions? Email <a className="text-rose-600" href="mailto:info@mooiprofessional.com">info@mooiprofessional.com</a>.</p>
-            </Section>
-          </motion.section>
-
-        </motion.div>
-      </div>
+            {/* Contact CTA */}
+            <motion.div
+              variants={fadeUp}
+              className="border border-black p-8 text-center"
+            >
+              <Mail className="h-6 w-6 mx-auto mb-4" />
+              <h3 className="text-lg font-bold uppercase tracking-widest mb-2">Questions?</h3>
+              <p className="text-gray-600 mb-4">We're happy to help with any privacy concerns.</p>
+              <a
+                href="mailto:info@mooiprofessional.com"
+                className="inline-block bg-black text-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors"
+              >
+                Contact Us
+              </a>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
     </main>
   );
 }
 
 function InfoCard({ icon, title, children }) {
   return (
-    <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-rose-50 p-2">{icon}</div>
-        <div>
-          <h4 className="font-semibold">{title}</h4>
-          <div className="mt-2 text-sm text-neutral-600">{children}</div>
+    <motion.div
+      variants={fadeUp}
+      className="group border border-black p-6 hover:bg-black hover:text-white transition-all duration-300"
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 border border-current flex items-center justify-center group-hover:bg-white group-hover:text-black transition-colors">
+          {icon}
         </div>
+        <h3 className="text-sm font-bold uppercase tracking-widest">{title}</h3>
       </div>
-    </div>
+      <div className="group-hover:text-gray-300 transition-colors">{children}</div>
+    </motion.div>
   );
 }
 
 function Section({ title, children }) {
   return (
-    <div>
-      <h3 className="text-lg font-semibold">{title}</h3>
-      <div className="mt-2 text-neutral-700">{children}</div>
-    </div>
+    <motion.div variants={fadeUp}>
+      <h3 className="text-lg font-bold uppercase tracking-widest mb-4 pb-2 border-b border-black">
+        {title}
+      </h3>
+      <div>{children}</div>
+    </motion.div>
   );
 }
-
-

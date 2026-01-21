@@ -34,7 +34,7 @@ const Hero = () => {
             <Link
               href="/shop"
               prefetch
-              className="hidden sm:inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full text-sm md:text-base"
+              className="hidden sm:inline-flex items-center gap-2 bg-black hover:bg-zinc-900 border-2 border-transparent hover:border-yellow-600 text-white px-8 py-3 rounded-none text-sm md:text-base font-bold uppercase tracking-widest transition-all"
             >
               Shop Products <ArrowRightIcon size={16} />
             </Link>

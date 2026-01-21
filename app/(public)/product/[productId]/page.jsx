@@ -57,27 +57,25 @@ export default function Product() {
 
   // scroll on productId change
   useEffect(() => {
-    try { if (typeof window !== 'undefined') window.scrollTo(0, 0); } catch (e) {}
+    try { if (typeof window !== 'undefined') window.scrollTo(0, 0); } catch (e) { }
   }, [productId]);
 
   return (
-    <div className="mx-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-gray-600 text-sm mt-8 mb-5">
-          Home / Products / {product?.category ?? "Loading..."}
-        </div>
-
-        {product ? (
-          <div>
-            <ProductDetails product={product} />
-            <ProductDescription product={product} />
-          </div>
-        ) : Array.isArray(products) && products.length === 0 && singleProduct === null ? (
-          <div className="py-10 text-center">Loading product...</div>
-        ) : (
-          <div className="py-10 text-center">Product not found.</div>
-        )}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="text-gray-600 text-sm mt-8 mb-5">
+        Home / Products / {product?.category ?? "Loading..."}
       </div>
+
+      {product ? (
+        <div>
+          <ProductDetails product={product} />
+          <ProductDescription product={product} />
+        </div>
+      ) : Array.isArray(products) && products.length === 0 && singleProduct === null ? (
+        <div className="py-10 text-center">Loading product...</div>
+      ) : (
+        <div className="py-10 text-center">Product not found.</div>
+      )}
     </div>
   );
 }

@@ -106,30 +106,46 @@ function ShopContent() {
   }
 
   return (
-    <div className="min-h-[70vh] mx-6">
-      <ProductsFilterBar />
-      <div className="max-w-7xl mx-auto">
-        <h1
-          onClick={handleBack}
-          className="text-2xl text-slate-500 my-6 flex items-center gap-2 cursor-pointer"
-        >
-          {(q || category) && <MoveLeftIcon size={20} />}
-          <span className="text-slate-700 font-medium">{headingLabel}</span>
-          {subLabel && <span className="text-slate-400 text-lg"> &middot; {subLabel}</span>}
+    <div className="min-h-[70vh] bg-white text-black">
+      {/* Hero / Header Section */}
+      <div className="bg-gray-50 border-b border-gray-100 py-16 md:py-24 px-4 sm:px-6 text-center">
+        <h1 className="text-4xl md:text-6xl font-serif font-black uppercase tracking-tighter mb-4">
+          {headingLabel || "Shop All"}
         </h1>
+        <p className="max-w-xl mx-auto text-xs md:text-sm text-gray-500 uppercase tracking-widest leading-relaxed">
+          {subLabel ? (
+            <span>Search Results for {subLabel}</span>
+          ) : (
+            "Explore our professional range of premium beauty essentials designed for excellence."
+          )}
+        </p>
+      </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 xl:gap-12 mx-auto mb-32">
+      <ProductsFilterBar />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+        <div className="mb-6 flex items-center gap-2 text-xs uppercase tracking-widest text-gray-400 cursor-pointer hover:text-black transition-colors w-fit" onClick={handleBack}>
+          {(q || category) && <MoveLeftIcon size={14} />}
+          {(q || category) && <span>Back to All Products</span>}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-12">
           {Array.isArray(products) && products.length > 0 ? (
             products.map((product) => {
               const thumb = Array.isArray(product.images) ? product.images[0] : null;
               return (
-                <div key={product.id} className="col-span-1">
+                <div key={product.id} className="col-span-1 group">
                   <ProductCard product={{ ...product, images: thumb ? [thumb] : [] }} />
                 </div>
               );
             })
           ) : (
-            <div className="col-span-full text-slate-500">No products found.</div>
+            <div className="col-span-full py-20 text-center">
+              <p className="text-xl font-serif text-gray-400">No products found matching your criteria.</p>
+              <button onClick={() => router.push("/shop")} className="mt-4 text-xs font-bold uppercase tracking-widest border-b border-black pb-1 hover:text-gray-600">
+                View All Products
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -13,12 +13,16 @@ model User {
   name  String
   email String? @unique
   image String?
-  cart  Json    @default("{}")
+  // cart  Json    @default("{}") // Deprecated
 
   // Relations
   ratings     Rating[]
   addresses   Address[]
   buyerOrders Order[]   @relation("BuyerRelation")
+
+  // New Relations
+  myCart   Cart?
+  wishlist Wishlist[]
 }
 
 model Product {
@@ -38,6 +42,8 @@ model Product {
   // Relations
   orderItems OrderItem[]
   rating     Rating[]
+  CartItem   CartItem[]
+  Wishlist   Wishlist[]
 
   @@index([category])
   @@index([createdAt])
@@ -78,10 +84,10 @@ model Order {
   updatedAt     DateTime @updatedAt
 
   // Relations - FIXED: Added buyer relation
-  buyer       User        @relation("BuyerRelation", fields: [userId], references: [id], onDelete: Cascade)
-  address     Address     @relation(fields: [addressId], references: [id])
-  orderItems  OrderItem[]
-  payments    Payment[]
+  buyer      User        @relation("BuyerRelation", fields: [userId], references: [id], onDelete: Cascade)
+  address    Address     @relation(fields: [addressId], references: [id])
+  orderItems OrderItem[]
+  payments   Payment[]
 
   @@index([userId])
   @@index([status])
@@ -150,11 +156,11 @@ model Coupon {
   id            String    @id @default(cuid())
   code          String    @unique
   description   String?
-  discountType  String    // "PERCENTAGE" or "FIXED"
-  discountValue Float     // Percentage (1-100) or fixed amount
-  maxDiscount   Float?    // Maximum discount for percentage coupons
-  minOrderValue Float?    // Minimum order value required
-  usageLimit    Int?      // Maximum number of times coupon can be used
+  discountType  String // "PERCENTAGE" or "FIXED"
+  discountValue Float // Percentage (1-100) or fixed amount
+  maxDiscount   Float? // Maximum discount for percentage coupons
+  minOrderValue Float? // Minimum order value required
+  usageLimit    Int? // Maximum number of times coupon can be used
   usedCount     Int       @default(0)
   isActive      Boolean   @default(true)
   startsAt      DateTime? // When coupon becomes valid
@@ -186,4 +192,40 @@ model Address {
   // Relations
   orders Order[]
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * ---------- Cart & Wishlist ----------
+ */
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now()) // For 2-month expiry
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now()) // For 2-month expiry
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
 }

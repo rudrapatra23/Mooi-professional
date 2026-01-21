@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, Heart, Play } from "lucide-react";
+import { Volume2, VolumeX, Heart, Play, ShoppingBag, Pause, X } from "lucide-react";
+import Link from 'next/link';
 
 const videos = [
   "https://res.cloudinary.com/df367il5r/video/upload/v1766147070/06_rlnj7s.mp4",
@@ -16,154 +17,120 @@ const videos = [
 ];
 
 export default function Reels() {
-  const videoRefs = useRef([]);
-  const [muted, setMuted] = useState(true);
-  const [liked, setLiked] = useState({});
-  const [activeVideo, setActiveVideo] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const video = entry.target;
-          const index = videoRefs.current.indexOf(video);
-
-          if (entry.isIntersecting) {
-            video.play();
-            setActiveVideo(index);
-          } else {
-            video.pause();
-          }
-        });
-      },
-      {
-        threshold: 0.7,
-        root: document.querySelector(".scroll-container"),
-      }
-    );
-
-    videoRefs.current.forEach((video) => {
-      if (video) observer.observe(video);
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const toggleLike = (index) => {
-    setLiked((prev) => ({ ...prev, [index]: !prev[index] }));
-  };
+  // Duplicate videos to create infinite loop effect
+  const displayVideos = [...videos, ...videos];
 
   return (
-    <div>
-      <div className="max-w-7xl mx-auto">
-        {/* Heading */}
-        <h1 className="text-4xl font-bold mb-6 text-center">Reels</h1>
-
-        {/* Scroll Container */}
-        <div className="scroll-container overflow-x-auto overflow-y-hidden pb-6 px-4 sm:px-0 scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-slate-800">
-          <div className="flex gap-6 w-max">
-            {videos.map((src, index) => (
-              <div
-                key={index}
-                className="group relative w-72 h-96 rounded-2xl overflow-hidden shadow-2xl transform hover:scale-105 transition-all duration-300 flex-shrink-0"
-              >
-                {/* Video */}
-                <video
-                  ref={(el) => (videoRefs.current[index] = el)}
-                  src={src}
-                  muted={muted}
-                  loop
-                  playsInline
-                  preload="metadata"
-                  className="w-full h-full object-cover"
-                />
-
-                {/* Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 pointer-events-none" />
-
-                {/* Play Overlay */}
-                {activeVideo !== index && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                      <Play size={32} className="text-white ml-1" fill="white" />
-                    </div>
-                  </div>
-                )}
-
-                {/* Top Controls */}
-                <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-                    {index + 1}
-                  </div>
-
-                  <button
-                    onClick={() => setMuted(!muted)}
-                    className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-black/70 transition-colors"
-                  >
-                    {muted ? (
-                      <VolumeX size={16} className="text-white" />
-                    ) : (
-                      <Volume2 size={16} className="text-white" />
-                    )}
-                  </button>
-                </div>
-
-                {/* Like Button Only */}
-                <div className="absolute right-3 bottom-20 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => toggleLike(index)}
-                    className="text-white transform hover:scale-110 transition-transform"
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-full ${
-                        liked[index]
-                          ? "bg-red-500"
-                          : "bg-black/50 backdrop-blur-md"
-                      } flex items-center justify-center`}
-                    >
-                      <Heart
-                        size={18}
-                        fill={liked[index] ? "white" : "none"}
-                      />
-                    </div>
-                  </button>
-                </div>
-
-                {/* Bottom Text */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 text-white z-10">
-                  <h3 className="font-bold text-sm mb-1 drop-shadow-lg">
-                    Reel #{index + 1}
-                  </h3>
-                  <p className="text-xs text-gray-200 line-clamp-2 drop-shadow-lg">
-                    Amazing content 
-                  </p>
-                </div>
-
-                {/* Hover Border */}
-                <div className="absolute inset-0 rounded-2xl border-2 border-purple-500/0 group-hover:border-purple-500/50 transition-all pointer-events-none" />
-              </div>
-            ))}
-          </div>
+    <div className="py-20 bg-black text-white overflow-hidden relative">
+      <div className="max-w-7xl mx-auto px-6 mb-10 flex flex-col md:flex-row items-end justify-between gap-6">
+        <div>
+          <h2 className="text-sm font-bold tracking-widest text-[#CB9800] uppercase mb-2">Real Results</h2>
+          <h1 className="text-4xl md:text-5xl font-serif">Mooi Moments</h1>
         </div>
-
-        {/* Scroll Hint */}
-        <div className="flex items-center justify-center gap-2 mt-6 text-gray-400 text-sm">
-          <svg
-            className="w-5 h-5 animate-bounce"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-          <span>Scroll to see more</span>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-gray-400 max-w-xs text-right hidden md:block">
+            Join our community. Tag @MooiProfessional to be featured.
+          </p>
         </div>
       </div>
+
+      <div
+        className="relative w-full"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        <div
+          className={`flex gap-6 w-max ${!isPaused ? 'animate-marquee' : ''}`}
+          style={{
+            animationPlayState: isPaused ? 'paused' : 'running',
+            animationDuration: '60s' // Slow down scrolling
+          }}
+        >
+          {displayVideos.map((src, index) => (
+            <div
+              key={index}
+              onClick={() => setSelectedVideo(src)}
+              className="relative w-[280px] h-[450px] bg-gray-900 border border-gray-800 hover:border-[#CB9800] transition-colors group flex-shrink-0 cursor-pointer"
+            >
+              <video
+                src={src}
+                muted
+                loop
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90" />
+
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/50">
+                  <Play size={20} fill="white" className="text-white ml-1" />
+                </div>
+              </div>
+
+              <div className="absolute bottom-6 left-6 right-6 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                <p className="text-xs font-bold text-[#CB9800] uppercase tracking-wider mb-2">Featured Look</p>
+                <div className="flex items-center justify-center gap-2 w-full py-3 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-[#CB9800] hover:text-white transition-colors">
+                  <ShoppingBag size={14} /> View Details
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Video Modal */}
+      {selectedVideo && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div
+            className="relative w-full max-w-sm sm:max-w-md max-h-[90vh] flex flex-col items-center"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedVideo(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+            >
+              <span className="text-sm font-bold uppercase tracking-widest mr-2">Close</span>
+              <X size={24} className="inline" />
+            </button>
+
+            <div className="w-full h-full border border-gray-800 bg-black shadow-2xl overflow-hidden relative">
+              <video
+                src={selectedVideo}
+                controls
+                autoPlay
+                loop
+                className="w-full h-full object-contain max-h-[80vh]"
+              />
+            </div>
+
+            <Link
+              href="/shop"
+              className="mt-6 flex items-center justify-center gap-2 w-full py-4 bg-[#CB9800] text-white text-sm font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-colors"
+            >
+              <ShoppingBag size={16} /> Shop This Look
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          animation: marquee linear infinite;
+        }
+      `}</style>
     </div>
   );
 }

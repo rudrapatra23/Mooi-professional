@@ -5,12 +5,15 @@ import {
   TagIcon,
   EarthIcon,
   CreditCardIcon,
+  Heart
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Counter from "./Counter";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "@/lib/features/cart/cartSlice";
+import { useAuth } from "@clerk/nextjs";
+import { toggleWishlist } from "@/lib/features/wishlist/wishlistSlice";
 
 const ProductDetails = ({ product }) => {
   if (!product) return null;
@@ -19,8 +22,10 @@ const ProductDetails = ({ product }) => {
   const currencySymbol = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
   const cart = useSelector((state) => state.cart?.cartItems ?? {});
+  const wishlistItems = useSelector((state) => state.wishlist?.items ?? []);
   const dispatch = useDispatch();
   const router = useRouter();
+  const { getToken } = useAuth();
 
   const [mainImage, setMainImage] = useState(
     Array.isArray(product.images) && product.images.length ? product.images[0] : ""
@@ -43,10 +48,10 @@ const ProductDetails = ({ product }) => {
         const arr = Array.isArray(body)
           ? body
           : Array.isArray(body?.rows)
-          ? body.rows
-          : Array.isArray(body?.ratings)
-          ? body.ratings
-          : [];
+            ? body.rows
+            : Array.isArray(body?.ratings)
+              ? body.ratings
+              : [];
         if (cancelled) return;
         setRatingsArray(arr);
 
@@ -108,7 +113,8 @@ const ProductDetails = ({ product }) => {
               <button
                 key={index}
                 onClick={() => setMainImage(image)}
-                className="bg-slate-100 flex items-center justify-center w-16 h-16 rounded-lg cursor-pointer hover:ring-2 hover:ring-rose-400 transition-all"
+                className={`bg-white border border-gray-200 flex items-center justify-center w-20 h-20 rounded-none cursor-pointer transition-all ${mainImage === image ? "border-black ring-1 ring-black" : "hover:border-black"
+                  }`}
                 type="button"
               >
                 <img
@@ -119,31 +125,32 @@ const ProductDetails = ({ product }) => {
               </button>
             ))
           ) : (
-            <div className="text-slate-400 text-sm">No images</div>
+            <div className="text-gray-400 text-sm">No images</div>
           )}
         </div>
 
         <div className="flex justify-center items-center">
-          <div className="w-[400px] h-[400px] bg-white rounded-2xl overflow-hidden flex items-center justify-center shadow-md">
+          <div className="w-[500px] h-[500px] bg-white border border-gray-100 rounded-none overflow-hidden flex items-center justify-center">
             {mainImage ? (
               <img
                 src={mainImage}
                 alt={product.name}
-                className="max-w-full max-h-full object-contain block"
+                className="max-w-full max-h-full object-contain block hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="text-slate-400 text-sm">No image available</div>
+              <div className="text-gray-400 text-sm">No image available</div>
             )}
           </div>
         </div>
       </div>
 
       {/* ---------- PRODUCT INFO SECTION ---------- */}
-      <div className="flex-1">
-        <h1 className="text-3xl font-semibold text-slate-800">{product.name}</h1>
+      <div className="flex-1 pt-4">
+        <h1 className="text-4xl font-bold text-black uppercase tracking-wide font-serif mb-2">{product.name}</h1>
+        <p className="text-sm text-gray-500 uppercase tracking-widest mb-4">{product.category}</p>
 
         {/* ---------- RATINGS ---------- */}
-        <div className="flex items-center mt-3">
+        <div className="flex items-center mb-6">
           {Array(5)
             .fill("")
             .map((_, i) => {
@@ -151,39 +158,39 @@ const ProductDetails = ({ product }) => {
               return (
                 <StarIcon
                   key={i}
-                  size={18}
-                  fill={filled ? "#FACC15" : "none"}
-                  stroke={filled ? "#FACC15" : "#9CA3AF"}
+                  size={16}
+                  fill={filled ? "black" : "none"}
+                  stroke={filled ? "black" : "#D1D5DB"}
                   className="mr-1"
                 />
               );
             })}
-          <span className="ml-3 text-sm text-slate-600">
-            {averageRating.toFixed(1)} / 5 ({ratingsArray.length}{" "}
-            {ratingsArray.length === 1 ? "Review" : "Reviews"})
+          <span className="ml-3 text-xs font-bold uppercase tracking-wider text-black border-b border-black cursor-pointer">
+            {ratingsArray.length} {ratingsArray.length === 1 ? "Review" : "Reviews"}
           </span>
         </div>
 
+        <div className="h-px bg-gray-200 w-full mb-6"></div>
+
         {/* ---------- PRICE ---------- */}
-        <div className="flex items-start my-6 gap-3 text-2xl font-semibold text-slate-800">
-          <p>{fmt.format(product.price)}</p>
+        <div className="flex items-end mb-6 gap-4">
+          <p className="text-3xl font-bold text-black font-serif">{fmt.format(product.price)}</p>
           {typeof product.mrp === "number" && product.mrp > product.price && (
-            <p className="text-xl text-slate-500 line-through">
+            <p className="text-lg text-gray-400 line-through mb-1">
               {fmt.format(product.mrp)}
             </p>
           )}
         </div>
 
         {/* ---------- STOCK LABEL ---------- */}
-        <div className="mt-2">
+        <div className="mb-4">
           <p
-            className={`font-medium ${
-              stockLabel.tone === "green"
-                ? "text-green-600"
-                : stockLabel.tone === "orange"
-                ? "text-orange-500"
+            className={`text-xs font-bold uppercase tracking-widest ${stockLabel.tone === "green"
+              ? "text-green-700"
+              : stockLabel.tone === "orange"
+                ? "text-orange-600"
                 : "text-red-600"
-            }`}
+              }`}
           >
             {stockLabel.text}
           </p>
@@ -191,52 +198,73 @@ const ProductDetails = ({ product }) => {
 
         {/* ---------- DISCOUNT ---------- */}
         {typeof product.mrp === "number" && product.mrp > product.price && (
-          <div className="flex items-center gap-2 text-slate-500 mt-3">
-            <TagIcon size={14} />
-            <p>
-              Save{" "}
-              {(((product.mrp - product.price) / product.mrp) * 100).toFixed(0)}%
-              right now
+          <div className="inline-flex items-center gap-2 bg-black text-white px-3 py-1 mb-8">
+            <TagIcon size={14} className="text-white" />
+            <p className="text-xs font-bold uppercase tracking-wider">
+              Save {(((product.mrp - product.price) / product.mrp) * 100).toFixed(0)}%
             </p>
           </div>
         )}
 
         {/* ---------- ADD TO CART ---------- */}
-        <div className="flex items-end gap-5 mt-10">
+        <div className="flex flex-col gap-6 mt-4">
           {cart[productId] && (
-            <div className="flex flex-col gap-3">
-              <p className="text-lg text-slate-800 font-semibold">Quantity</p>
-              <Counter productId={productId} />
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-bold text-black uppercase tracking-widest">Quantity</p>
+              <div className="w-fit border border-black">
+                <Counter productId={productId} />
+              </div>
             </div>
           )}
 
-          <button
-            onClick={() =>
-              !cart[productId] ? addToCartHandler() : router.push("/cart")
-            }
-            disabled={!product.inStock}
-            className={`px-10 py-3 text-sm font-medium rounded transition ${
-              product.inStock
-                ? "bg-slate-800 text-white hover:bg-slate-900 active:scale-95"
-                : "bg-gray-300 text-gray-600 cursor-not-allowed"
-            }`}
-            type="button"
-          >
-            {!product.inStock
-              ? "Out of Stock"
-              : !cart[productId]
-              ? "Add to Cart"
-              : "View Cart"}
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() =>
+                !cart[productId] ? addToCartHandler() : router.push("/cart")
+              }
+              disabled={!product.inStock}
+              className={`flex-1 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] rounded-none transition-all duration-300 border ${product.inStock
+                ? "bg-black text-white border-black hover:bg-white hover:text-black"
+                : "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed"
+                }`}
+              type="button"
+            >
+              {!product.inStock
+                ? "Out of Stock"
+                : !cart[productId]
+                  ? "Add to Cart"
+                  : "View Cart"}
+            </button>
+
+            <button
+              onClick={() => dispatch(toggleWishlist({ productId, getToken }))}
+              className={`px-4 py-4 border transition-colors ${wishlistItems.some(item => item.productId === productId)
+                ? "border-red-500 bg-red-50 text-red-500"
+                : "border-gray-300 hover:border-black text-black"
+                }`}
+              title={wishlistItems.some(item => item.productId === productId) ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <Heart
+                size={20}
+                className={wishlistItems.some(item => item.productId === productId) ? "fill-current" : ""}
+              />
+            </button>
+          </div>
         </div>
 
-        <hr className="border-gray-300 my-5" />
+        <div className="mt-8 text-xs text-gray-500 leading-relaxed max-w-md">
+          <p className="mb-2"><span className="font-bold text-black uppercase mr-2">Free Shipping</span> On orders over {currencySymbol}999</p>
+          <p><span className="font-bold text-black uppercase mr-2">Returns</span> Easy 30-day return policy</p>
+        </div>
+
+        <hr className="border-gray-200 my-8" />
 
         {/* ---------- DELIVERY INFO ---------- */}
-        <div className="flex flex-col gap-4 text-slate-500">
+        <div className="flex flex-col gap-4 text-gray-500 text-sm">
           <DeliveryByText />
           <p className="flex gap-3 items-center">
-            <CreditCardIcon className="text-slate-400" /> 100% Secured Payment
+            <CreditCardIcon className="text-gray-400" size={18} />
+            <span>100% Secured Payment</span>
           </p>
         </div>
       </div>
@@ -257,11 +285,11 @@ function DeliveryByText() {
   });
 
   return (
-    <p className="flex gap-3 items-center text-slate-600">
-      <EarthIcon className="text-slate-400" />
+    <p className="flex gap-3 items-center text-gray-600">
+      <EarthIcon className="text-gray-400" size={18} />
       <span>
         Delivery within 7 days —{" "}
-        <span className="font-medium text-slate-800">by {formatted}</span>
+        <span className="font-bold text-black uppercase tracking-wide">by {formatted}</span>
       </span>
     </p>
   );

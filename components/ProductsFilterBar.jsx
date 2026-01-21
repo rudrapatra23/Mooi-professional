@@ -34,7 +34,7 @@ export default function ProductsFilterBar() {
       const params = new URLSearchParams();
       if (currentCategory) params.set("category", currentCategory);
       if (debouncedSearch) params.set("q", debouncedSearch);
-      
+
       const newUrl = params.toString() ? `/shop?${params.toString()}` : "/shop";
       router.push(newUrl);
     }
@@ -49,40 +49,39 @@ export default function ProductsFilterBar() {
     const params = new URLSearchParams();
     if (categorySlug) params.set("category", categorySlug);
     if (currentQ) params.set("q", currentQ);
-    
+
     const newUrl = params.toString() ? `/shop?${params.toString()}` : "/shop";
     router.push(newUrl);
   }, [currentQ, router]);
 
   return (
-    <div className="sticky top-0 z-30 bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+    <div className="sticky top-0 z-30 bg-white border-b border-black/10">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+        <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-0 top-1/2 transform -translate-y-1/2 text-black" size={20} />
             <input
               type="text"
-              placeholder="Search products..."
+              placeholder="SEARCH PRODUCTS..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="w-full pl-8 pr-4 py-2 border-b border-gray-300 focus:border-black outline-none transition-all placeholder:text-gray-400 text-sm uppercase tracking-wider bg-transparent rounded-none"
             />
           </div>
 
           {/* Category Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="text-slate-500" size={18} />
-            <div className="flex gap-2 overflow-x-auto">
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-bold uppercase tracking-widest text-black hidden sm:block">Filter By:</span>
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
               {categories.map((category) => (
                 <button
                   key={category.slug}
                   onClick={() => handleCategoryChange(category.slug)}
-                  className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap transition-colors ${
-                    currentCategory === category.slug
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
+                  className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-none whitespace-nowrap transition-all border ${currentCategory === category.slug
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-black hover:text-black"
+                    }`}
                 >
                   {category.label}
                 </button>

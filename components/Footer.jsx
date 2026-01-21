@@ -11,7 +11,7 @@ const Footer = () => {
     const LinkedinIcon = () => (<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M13.3346 6.66699C14.6607 6.66699 15.9325 7.19378 16.8702 8.13146C17.8079 9.06914 18.3346 10.3409 18.3346 11.667V17.5003H15.0013V11.667C15.0013 11.225 14.8257 10.801 14.5131 10.4885C14.2006 10.1759 13.7767 10.0003 13.3346 10.0003C12.8926 10.0003 12.4687 10.1759 12.1561 10.4885C11.8436 10.801 11.668 11.225 11.668 11.667V17.5003H8.33464V11.667C8.33464 10.3409 8.86142 9.06914 9.7991 8.13146C10.7368 7.19378 12.0086 6.66699 13.3346 6.66699Z" stroke="#90A1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /> <path d="M5.0013 7.50033H1.66797V17.5003H5.0013V7.50033Z" stroke="#90A1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /> <path d="M3.33464 5.00033C4.25511 5.00033 5.0013 4.25413 5.0013 3.33366C5.0013 2.41318 4.25511 1.66699 3.33464 1.66699C2.41416 1.66699 1.66797 2.41318 1.66797 3.33366C1.66797 4.25413 2.41416 5.00033 3.33464 5.00033Z" stroke="#90A1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /> </svg>)
 
     const linkSections = [
-       
+
         {
             title: "WEBSITE?",
             links: [
@@ -25,9 +25,9 @@ const Footer = () => {
         {
             title: "CONTACT",
             links: [
-                { text: "+1-212-456-7890", path: '/', icon: PhoneIcon },
+                { text: "+91 78380 28450", path: '/', icon: PhoneIcon },
                 { text: "info@mooiprofessional.com", path: '/', icon: MailIcon },
-                { text: "Mumbai", path: '/', icon: MapPinIcon }
+                { text: "Mumbai, India", path: '/', icon: MapPinIcon }
             ]
         }
     ];
@@ -40,31 +40,51 @@ const Footer = () => {
     ]
 
     return (
-        <footer className="mx-6 bg-white">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col md:flex-row items-start justify-between gap-10 py-10 border-b border-slate-500/30 text-slate-500">
-                    <div>
-                        <Link href="/" className="text-4xl font-semibold text-slate-700">
-                            <span className="text-black">Mooi</span><span className="text-black"> Professional</span>
+        <footer className="bg-black text-white pt-16 pb-8 border-t border-gray-900">
+            <div className="max-w-7xl mx-auto px-6">
+                <div className="flex flex-col md:flex-row items-start justify-between gap-12 pb-12 border-b border-white/10">
+                    <div className="md:w-1/3">
+                        <Link href="/" className="block mb-6 group">
+                            <h2 className="text-2xl md:text-3xl font-serif font-black tracking-tighter uppercase leading-none group-hover:opacity-80 transition-opacity">
+                                Mooi
+                            </h2>
+                            <p className="text-[8px] md:text-[10px] uppercase tracking-[0.4em] text-gray-500 group-hover:text-white transition-colors font-bold">
+                                Professional
+                            </p>
                         </Link>
-                        <p className="max-w-[410px] mt-6 text-sm">Welcome to Mooi Professional, your ultimate destination of beauty products — all in one place.</p>
-                        <div className="flex items-center gap-3 mt-5">
+                        <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm">
+                            Professional beauty solutions crafted for excellence. Join our community of style and confidence.
+                        </p>
+                        <div className="flex items-center gap-4">
                             {socialIcons.map((item, i) => (
-                                <Link href={item.link} key={i} className="flex items-center justify-center w-10 h-10 bg-slate-100 hover:scale-105 hover:border border-slate-300 transition rounded-full">
+                                <Link
+                                    href={item.link}
+                                    key={i}
+                                    className="flex items-center justify-center w-10 h-10 border border-white/20 rounded-none text-white hover:bg-white hover:text-black hover:border-white transition-all duration-300"
+                                >
                                     <item.icon />
                                 </Link>
                             ))}
                         </div>
                     </div>
-                    <div className="flex flex-wrap justify-between w-full md:w-[45%] gap-5 text-sm ">
+
+                    <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
                         {linkSections.map((section, index) => (
                             <div key={index}>
-                                <h3 className="font-medium text-black md:mb-5 mb-3">{section.title}</h3>
-                                <ul className="space-y-2.5">
+                                <h3 className="font-bold text-sm uppercase tracking-widest mb-6 text-white/90">{section.title}</h3>
+                                <ul className="space-y-4">
                                     {section.links.map((link, i) => (
-                                        <li key={i} className="flex items-center gap-2">
-                                            {link.icon && <link.icon />}
-                                            <Link href={link.path} className="hover:underline transition">{link.text}</Link>
+                                        <li key={i}>
+                                            <Link
+                                                href={link.path}
+                                                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group break-all"
+                                            >
+                                                {link.icon && <link.icon className="w-4 h-4 flex-shrink-0" />}
+                                                <span className="relative">
+                                                    {link.text}
+                                                    <span className="absolute left-0 -bottom-1 w-0 h-px bg-white transition-all group-hover:w-full" />
+                                                </span>
+                                            </Link>
                                         </li>
                                     ))}
                                 </ul>
@@ -72,9 +92,14 @@ const Footer = () => {
                         ))}
                     </div>
                 </div>
-                <p className="py-4 text-sm text-slate-500">
-                    Copyright 2025 ©  All Right Reserved.
-                </p>
+
+                <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500 uppercase tracking-wider">
+                    <p>© 2025 Mooi Professional. All Rights Reserved.</p>
+                    <div className="flex gap-6">
+                        <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                        <Link href="/terms" className="hover:text-white transition-colors">Terms of Use</Link>
+                    </div>
+                </div>
             </div>
         </footer>
     );

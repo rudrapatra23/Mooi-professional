@@ -6,26 +6,39 @@ import {
   ShoppingCart,
   MoreVertical,
   X,
+  User,
+  Heart
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { fetchWishlist } from "@/lib/features/wishlist/wishlistSlice";
+import { fetchCart } from "@/lib/features/cart/cartSlice";
+import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useRef, useState } from "react";
-import { useSelector } from "react-redux";
-import { useUser, useClerk, UserButton } from "@clerk/nextjs";
+import { useUser, useClerk, useAuth, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 
 const Navbar = () => {
   const { user } = useUser();
   const { openSignIn, signOut } = useClerk();
+  const { getToken } = useAuth(); // Needed for thunks
   const router = useRouter();
   const pathname = usePathname();
+  const dispatch = useDispatch();
 
   const [search, setSearch] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const cartCount = useSelector((state) => state.cart.total);
+  const wishlistItems = useSelector((state) => state.wishlist?.items || []);
   const searchRef = useRef(null);
+
+  // Sync Cart & Wishlist on load/user change
+  useEffect(() => {
+    dispatch(fetchCart({ getToken }));
+    dispatch(fetchWishlist({ getToken }));
+  }, [user, dispatch, getToken]);
 
   const handleSearch = (e) => {
     e?.preventDefault();
@@ -34,6 +47,9 @@ const Navbar = () => {
     setMobileSearchOpen(false);
     setMobileMenuOpen(false);
   };
+
+
+
 
   const handleLogin = () => {
     if (user) {
@@ -64,150 +80,171 @@ const Navbar = () => {
   useEffect(() => {
     try {
       router.prefetch("/shop");
-    } catch {}
+    } catch { }
   }, [router]);
 
   return (
-    <nav className="relative bg-white shadow-sm">
-      <div className="mx-6">
-        <div className="flex items-center justify-between max-w-7xl mx-auto py-3 md:py-4">
+    <nav className="relative bg-white z-50">
+      {/* Announcement Bar */}
+      <div className="bg-black text-white text-[10px] md:text-xs font-bold text-center py-2 uppercase tracking-[0.2em]">
+        Free Shipping on all orders over ₹999
+      </div>
+
+      <div className="border-b border-black">
+        <div className="flex items-center justify-between max-w-7xl mx-auto px-4 sm:px-6 py-4 md:py-6">
           {/* Left: Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="Mooi Professional"
-              width={120}
-              height={40}
-              priority
-            />
+          <Link href="/" className="flex items-center gap-3 group">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-serif font-black tracking-tighter uppercase leading-none group-hover:opacity-80 transition-opacity">
+                Mooi
+              </h1>
+              <p className="text-[8px] md:text-[10px] uppercase tracking-[0.4em] text-gray-500 group-hover:text-black transition-colors font-bold text-justify w-full flex justify-between">
+                <span>Professional</span>
+              </p>
+            </div>
           </Link>
 
           {/* Desktop menu */}
-          <div className="hidden sm:flex items-center gap-6 md:gap-8">
-            <nav className="flex items-center gap-6 text-slate-700">
-              <Link href="/shop" prefetch className="relative group">
-                Products
-                <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
-              </Link>
-
-              {[{ href: "/", label: "Home" }, { href: "/about", label: "About" }].map(
-                (item) => (
-                  <Link key={item.href} href={item.href} className="relative group">
-                    {item.label}
-                    <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-slate-700 transition-all group-hover:w-full" />
-                  </Link>
-                )
-              )}
+          <div className="hidden lg:flex items-center gap-12">
+            <nav className="flex items-center gap-8 text-black">
+              {[
+                { href: "/", label: "Home" },
+                { href: "/shop", label: "Shop" },
+                { href: "/about", label: "Our Story" }
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="relative group text-xs font-bold uppercase tracking-widest hover:text-gray-600 transition-colors"
+                >
+                  {item.label}
+                  <span className="absolute left-0 -bottom-1 w-0 h-[1px] bg-black transition-all duration-300 group-hover:w-full" />
+                </Link>
+              ))}
             </nav>
-
-            {/* Desktop Search */}
-            <form
-              onSubmit={handleSearch}
-              className="hidden xl:flex items-center bg-slate-100 px-4 py-2 rounded-full"
-            >
-              <input
-                className="w-56 bg-transparent outline-none placeholder-slate-600 text-sm"
-                type="text"
-                placeholder="Search products"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </form>
           </div>
 
+          {/* Center Search (Large Screens) */}
+          <form
+            onSubmit={handleSearch}
+            className="hidden xl:flex items-center border-b border-gray-300 focus-within:border-black transition-colors px-0 py-1 mx-8 flex-1 max-w-sm"
+          >
+            <Search size={16} className="text-gray-400" />
+            <input
+              className="w-full bg-transparent outline-none placeholder-gray-400 text-xs uppercase tracking-wider font-medium ml-3"
+              type="text"
+              placeholder="Search Essentials"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </form>
+
           {/* Right: Icons */}
-          <div className="flex items-center gap-3">
-            {/* Search (Mobile Popover) */}
-            <div className="relative sm:hidden">
-              <button
-                type="button"
-                className="p-2 rounded-full hover:bg-slate-100"
-                onClick={() => {
-                  setMobileSearchOpen((s) => !s);
-                  setMobileMenuOpen(false);
-                }}
-                aria-label="Open search"
-                aria-expanded={mobileSearchOpen}
-              >
-                {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
-              </button>
-
-              {mobileSearchOpen && (
-                <form
-                  onSubmit={handleSearch}
-                  className="absolute right-0 top-10 z-[70] w-72 bg-white border rounded-md shadow-md p-2 flex items-center gap-2"
-                >
-                  <input
-                    ref={searchRef}
-                    className="w-full outline-none text-sm"
-                    type="text"
-                    placeholder="Search products"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="px-3 py-1 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-700"
-                  >
-                    Go
-                  </button>
-                </form>
-              )}
-            </div>
-
-            {/* Cart */}
-            <Link href="/cart" className="relative p-2 rounded-full hover:bg-slate-100">
-              <ShoppingCart size={20} />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-0.5 text-[10px] text-white bg-emerald-600 px-1.5 py-0.5 rounded-full">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-
-            {/* Login / User (desktop) */}
-            <div className="hidden sm:flex items-center">
-              {!user ? (
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-5">
+              {/* Search (Mobile Popover) */}
+              <div className="relative xl:hidden">
                 <button
                   type="button"
-                  onClick={handleLogin}
-                  className="ml-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-sm"
+                  className="hover:scale-110 transition-transform text-black"
+                  onClick={() => {
+                    setMobileSearchOpen((s) => !s);
+                    setMobileMenuOpen(false);
+                  }}
                 >
-                  Login
+                  <Search size={20} strokeWidth={1.5} />
                 </button>
-              ) : (
-                <UserButton>
-                  <UserButton.MenuItems>
-                    <UserButton.Action
-                      labelIcon={<PackageIcon size={16} />}
-                      label="My Orders"
-                      onClick={() => router.push("/orders")}
-                    />
-                  </UserButton.MenuItems>
-                </UserButton>
-              )}
+
+                {mobileSearchOpen && (
+                  <div className="absolute right-0 top-12 z-[70] w-screen max-w-md bg-white border border-black p-0 drop-shadow-xl animate-in fade-in slide-in-from-top-2">
+                    <form
+                      onSubmit={handleSearch}
+                      className="flex items-stretch"
+                    >
+                      <input
+                        ref={searchRef}
+                        className="flex-1 outline-none text-sm p-4 uppercase tracking-wide placeholder-gray-400"
+                        type="text"
+                        placeholder="SEARCH PRODUCTS..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        className="px-6 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                      >
+                        Search
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+
+              {/* Wishlist Placeholder -> Real Link */}
+              <button
+                className="hidden sm:block hover:scale-110 transition-transform text-black relative group"
+                onClick={() => router.push("/wishlist")} // Future page
+              >
+                <Heart size={20} strokeWidth={1.5} />
+                {wishlistItems.length > 0 && (
+                  <span className="absolute -top-2 -right-2 text-[9px] font-bold text-white bg-black w-4 h-4 flex items-center justify-center rounded-full border border-white">
+                    {wishlistItems.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Cart */}
+              <Link href="/cart" className="hover:scale-110 transition-transform text-black relative">
+                <ShoppingCart size={20} strokeWidth={1.5} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 text-[9px] font-bold text-white bg-black w-4 h-4 flex items-center justify-center rounded-full border border-white">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Login / User (desktop) */}
+              <div className="hidden sm:flex items-center border-l border-gray-300 pl-6">
+                {!user ? (
+                  <button
+                    type="button"
+                    onClick={handleLogin}
+                    className="text-xs font-bold uppercase tracking-widest hover:underline decoration-1 underline-offset-4"
+                  >
+                    Login
+                  </button>
+                ) : (
+                  <UserButton>
+                    <UserButton.MenuItems>
+                      <UserButton.Action
+                        labelIcon={<PackageIcon size={16} />}
+                        label="My Orders"
+                        onClick={() => router.push("/orders")}
+                      />
+                    </UserButton.MenuItems>
+                  </UserButton>
+                )}
+              </div>
             </div>
 
-            {/* Mobile Menu */}
-            <div className="sm:hidden relative">
+            {/* Mobile Menu Toggle */}
+            <div className="lg:hidden relative">
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen((p) => !p);
                   setMobileSearchOpen(false);
                 }}
-                className="p-2 rounded-full hover:bg-slate-100"
-                aria-label="Open menu"
-                aria-expanded={mobileMenuOpen}
+                className="hover:bg-gray-100 p-1 transition-colors text-black"
               >
-                <MoreVertical size={22} />
+                <MoreVertical size={24} strokeWidth={1.5} />
               </button>
 
               {/* Backdrop */}
               {(mobileMenuOpen || mobileSearchOpen) && (
                 <div
-                  className="fixed inset-0 bg-black/20 z-40"
+                  className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     setMobileSearchOpen(false);
@@ -215,108 +252,87 @@ const Navbar = () => {
                 />
               )}
 
-              {/* Mobile Menu Panel (NOW SOLID WHITE AND VISIBLE) */}
+              {/* Mobile Menu Panel */}
               {mobileMenuOpen && (
                 <div
-                  className="fixed right-3 top-16 w-[88vw] max-w-[360px] z-[60] p-3 flex flex-col text-sm rounded-xl
-                             text-gray-900 bg-white ring-2 ring-gray-300 shadow-xl overflow-visible"
-                  role="dialog"
-                  aria-modal="true"
+                  className="fixed right-0 top-0 h-full w-[300px] z-[80] p-8 flex flex-col bg-white border-l border-black shadow-2xl animate-in slide-in-from-right duration-300"
                 >
+                  <div className="flex justify-between items-center mb-10 border-b border-gray-100 pb-4">
+                    <h2 className="text-2xl font-serif font-bold uppercase tracking-tighter">Menu</h2>
+                    <button onClick={() => setMobileMenuOpen(false)} className="hover:rotate-90 transition-transform">
+                      <X size={24} />
+                    </button>
+                  </div>
+
                   {/* Products (mobile) */}
-                  <Link
-                    href="/shop"
-                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Products
-                  </Link>
+                  <div className="flex flex-col gap-6">
+                    {[
+                      { href: "/", label: "Home" },
+                      { href: "/shop", label: "Shop Products" },
+                      { href: "/wishlist", label: `My Favorites (${wishlistItems.length})` },
+                      { href: "/about", label: "Our Story" },
+                      { href: "/cart", label: `My Cart (${cartCount})` }
+                    ].map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="text-sm font-bold uppercase tracking-widest hover:text-gray-500 transition-colors"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
 
-                  <Link
-                    href="/"
-                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Home
-                  </Link>
+                  <div className="mt-auto pt-6 border-t border-gray-100">
+                    {user ? (
+                      <div className="flex flex-col gap-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            router.push("/orders");
+                          }}
+                          className="flex items-center gap-3 text-sm font-bold uppercase tracking-wider"
+                        >
+                          <PackageIcon size={18} /> My Orders
+                        </button>
 
-                  <Link
-                    href="/about"
-                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    About
-                  </Link>
-
-                  <div className="border-t border-gray-200 my-2" />
-
-                  <Link
-                    href="/cart"
-                    className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <ShoppingCart size={16} /> Cart
-                    <span className="ml-auto text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">
-                      {cartCount}
-                    </span>
-                  </Link>
-
-                  {/* Auth / Orders / Sign out */}
-                  {user ? (
-                    <>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setMobileMenuOpen(false);
+                            try {
+                              await signOut();
+                            } catch (err) { }
+                            try {
+                              router.push("/");
+                            } catch { }
+                          }}
+                          className="mt-4 w-full py-4 border border-black text-black uppercase tracking-widest text-xs font-bold hover:bg-black hover:text-white transition-all text-center"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
                           setMobileMenuOpen(false);
-                          router.push("/orders");
+                          handleLogin();
                         }}
-                        className="p-2 hover:bg-gray-100 rounded-md transition flex items-center gap-2"
+                        className="w-full py-4 bg-black text-white hover:bg-zinc-800 text-xs uppercase tracking-widest font-bold transition-all"
                       >
-                        <PackageIcon size={16} /> My Orders
+                        Login / Register
                       </button>
-
-                      {/* Solid Red Sign Out Button: bg-red-600 with hover:bg-red-700 */}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setMobileMenuOpen(false);
-                          try {
-                            await signOut(); // Clerk: sign the user out
-                          } catch (err) {
-                            console.error("Sign out failed", err);
-                          }
-                          try {
-                            router.push("/");
-                          } catch {}
-                        }}
-                        className="mt-3 px-4 py-2 rounded-lg flex items-center justify-center gap-2
-             text-red-600 hover:text-red-700 font-medium
-             bg-transparent border border-red-600 hover:border-red-700
-             transition-all duration-200"
-                      >
-                        Sign Out
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        handleLogin();
-                      }}
-                      className="mt-2 px-4 py-2 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 text-sm shadow-md"
-                    >
-                      Login
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
-
-      <hr className="border-gray-200" />
     </nav>
   );
 };
