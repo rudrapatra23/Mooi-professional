@@ -13,21 +13,36 @@
 }
 
 @layer base {
+    html {
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
     body {
         @apply bg-white text-black overflow-x-hidden;
         margin: 0;
         padding: 0;
-    }
-
-    html {
-        overflow-x: hidden;
+        /* Bright white background */
+        background-color: #ffffff;
     }
 
     button {
         cursor: pointer;
     }
+
+    img {
+        content-visibility: auto;
+    }
 }
 
+/* Hide scrollbar but keep functionality */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

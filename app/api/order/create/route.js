@@ -117,10 +117,10 @@ export async function POST(req) {
       // Check minimum order value
       if (coupon.minOrderValue && subtotal < coupon.minOrderValue) {
         return NextResponse.json(
-          { 
-            ok: false, 
-            error: "minimum_order_not_met", 
-            message: `Minimum order value of ₹${coupon.minOrderValue} required for this coupon` 
+          {
+            ok: false,
+            error: "minimum_order_not_met",
+            message: `Minimum order value of ₹${coupon.minOrderValue} required for this coupon`
           },
           { status: 400 }
         );
@@ -140,9 +140,11 @@ export async function POST(req) {
       appliedCoupon = coupon;
     }
 
-    const SHIPPING_FEE = Number(body.shipping ?? 99);
+    // Free delivery for orders over ₹1599
+    const FREE_SHIPPING_THRESHOLD = 1599;
+    const SHIPPING_FEE = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 99;
     const GST_RATE = typeof body.gstRate === "number" ? Number(body.gstRate) : 0.18;
-    
+
     // Calculate GST on discounted subtotal
     const subtotalAfterDiscount = subtotal - discountAmount;
     const gstAmount = parseFloat((subtotalAfterDiscount * GST_RATE).toFixed(2));

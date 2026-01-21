@@ -42,14 +42,14 @@ const AddressDropdown = ({ addressList, onSelect }) => {
         className="w-full flex items-center justify-between border border-black p-4 text-sm font-medium uppercase tracking-wide bg-white hover:bg-gray-50 transition-colors"
       >
         <span className={selected !== null ? "text-black" : "text-gray-400"}>
-          {selected !== null 
-            ? `${addressList[selected].name}, ${addressList[selected].city}` 
+          {selected !== null
+            ? `${addressList[selected].name}, ${addressList[selected].city}`
             : "Select Saved Address"
           }
         </span>
-        <ChevronDown 
-          size={16} 
-          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+        <ChevronDown
+          size={16}
+          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -61,9 +61,8 @@ const AddressDropdown = ({ addressList, onSelect }) => {
               key={index}
               type="button"
               onClick={() => handleSelect(address, index)}
-              className={`w-full flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                selected === index ? 'bg-gray-50' : ''
-              }`}
+              className={`w-full flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${selected === index ? 'bg-gray-50' : ''
+                }`}
             >
               <MapPin size={16} className="mt-0.5 flex-shrink-0 text-gray-400" />
               <div className="flex-1 min-w-0">
@@ -109,8 +108,13 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
   const [couponLoading, setCouponLoading] = useState(false);
 
   // constants and calculations
-  const SHIPPING_FEE = 99;
+  const FREE_SHIPPING_THRESHOLD = 1599;
   const GST_RATE = 0.18;
+
+  // Free delivery for orders over ₹1599
+  const isFreeShipping = Number(totalPrice || 0) >= FREE_SHIPPING_THRESHOLD;
+  const SHIPPING_FEE = isFreeShipping ? 0 : 99;
+  const amountForFreeShipping = FREE_SHIPPING_THRESHOLD - Number(totalPrice || 0);
 
   // Discount calculation
   const discountAmount = useMemo(() => {
@@ -449,10 +453,17 @@ const OrderSummary = ({ totalPrice = 0, items = [] }) => {
 
           <div className="flex justify-between text-sm uppercase tracking-wider text-gray-500">
             <span>Shipping</span>
-            <span className="text-black font-bold">
-              <Protect plan={'plus'} fallback={`${currency}${SHIPPING_FEE}`}>Free</Protect>
+            <span className={`font-bold ${isFreeShipping ? 'text-green-600' : 'text-black'}`}>
+              {isFreeShipping ? 'FREE' : `${currency}${SHIPPING_FEE}`}
             </span>
           </div>
+
+          {/* Free shipping progress indicator */}
+          {!isFreeShipping && amountForFreeShipping > 0 && (
+            <div className="text-xs text-gray-500 mt-2 p-3 bg-gray-50 border border-gray-200">
+              Add <span className="font-bold text-black">{currency}{amountForFreeShipping.toFixed(0)}</span> more for <span className="font-bold text-black">FREE delivery</span>
+            </div>
+          )}
 
           <div className="flex justify-between text-sm uppercase tracking-wider text-gray-500">
             <span>Tax (GST 18%)</span>

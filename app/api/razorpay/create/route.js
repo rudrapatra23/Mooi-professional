@@ -51,8 +51,10 @@ export async function POST(req) {
       normalizedItems.push({ productId, quantity, price });
     }
 
-    const shipping = Number(body.shipping ?? 99);
-    const GST_RATE = 0.18; // can make dynamic if needed
+    // Free delivery for orders over ₹1599
+    const FREE_SHIPPING_THRESHOLD = 1599;
+    const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 99;
+    const GST_RATE = 0.18;
     const gstAmount = parseFloat((subtotal * GST_RATE).toFixed(2));
     const total = parseFloat((subtotal + gstAmount + shipping - Number(body.discount ?? 0)).toFixed(2));
 
