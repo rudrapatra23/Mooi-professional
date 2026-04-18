@@ -169,15 +169,36 @@ export async function PUT(req) {
 /* ------------------ DELETE ------------------ */
 export async function DELETE(req) {
   try {
+    const url = new URL(req.url);
     const productId = parseProductId(req.url);
+    const soft = url.searchParams.get("soft") === "true";
+
     if (!productId) return NextResponse.json({ error: "productId is required" }, { status: 400 });
 
-    await prisma.product.delete({ where: { id: productId } });
+    if (soft) {
+      // Soft delete: hide from storefront without breaking order history
+      const updated = await prisma.product.update({
+        where: { id: productId },
+        data: { isDeleted: true },
+        select: { id: true, name: true },
+      });
+      return NextResponse.json({ message: "Product soft-deleted", product: updated });
+    }
+
+    // Hard delete: remove all dependent child rows first, then delete the product
+    await prisma.$transaction([
+      prisma.orderItem.deleteMany({ where: { productId } }),
+      prisma.cartItem.deleteMany({ where: { productId } }),
+      prisma.wishlist.deleteMany({ where: { productId } }),
+      prisma.rating.deleteMany({ where: { productId } }),
+      prisma.product.delete({ where: { id: productId } }),
+    ]);
 
     return NextResponse.json({ message: "Product deleted", success: true });
   } catch (err) {
     console.error("DELETE /api/product error:", err);
     if (err.code === "P2025") return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    if (err.code === "P2003") return NextResponse.json({ error: "Cannot delete: related records still exist." }, { status: 400 });
     return NextResponse.json({ error: err?.message || "Failed to delete product" }, { status: 500 });
   }
 }
